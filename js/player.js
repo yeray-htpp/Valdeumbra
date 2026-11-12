@@ -25,6 +25,7 @@ export class Player {
     this.stamina = 1;          // 0..1 para correr con Shift
     this.exhausted = false;
     this.sprinting = false;
+    this.slowT = 0;            // manos que te sujetan
     this.moving = false;
     this.bobT = 0;
 
@@ -71,7 +72,8 @@ export class Player {
       this.stamina = Math.min(1, this.stamina + dt * 0.18);
       if (this.exhausted && this.stamina > 0.35) this.exhausted = false;
     }
-    const speed = this.speed * (this.boostTime > 0 ? 1.5 : 1) * (this.sprinting ? 1.65 : 1);
+    if (this.slowT > 0) this.slowT -= dt;
+    const speed = this.speed * (this.boostTime > 0 ? 1.5 : 1) * (this.sprinting ? 1.65 : 1) * (this.slowT > 0 ? 0.35 : 1);
 
     if (this.moving) {
       f /= len; r /= len;

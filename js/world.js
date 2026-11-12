@@ -59,6 +59,26 @@ const TEX = {
     for (let y = 0; y < s; y += 8) g.fillRect(0, y, s, 2);
   }),
   grave: () => canvasTexture(32, (g, s) => speckle(g, s, '#6a6a68', 255, 120)),
+  // pared de yeso blanco con vigas de madera (casas japonesas)
+  plaster: () => canvasTexture(64, (g, s) => {
+    speckle(g, s, '#b8ae98', 90, 160);
+    g.fillStyle = '#2b1c12';
+    g.fillRect(0, 0, 4, s); g.fillRect(s - 4, 0, 4, s); g.fillRect(30, 0, 4, s);
+    g.fillRect(0, 20, s, 4); g.fillRect(0, s - 6, s, 6);
+  }),
+  // tejas oscuras
+  tile: () => canvasTexture(64, (g, s) => {
+    speckle(g, s, '#25272e', 80, 120);
+    g.fillStyle = '#121318';
+    for (let x = 0; x < s; x += 8) g.fillRect(x, 0, 2, s);
+  }),
+  // tatami
+  tatami: () => canvasTexture(64, (g, s) => {
+    g.fillStyle = '#8a8a4a'; g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(60,60,20,0.35)';
+    for (let y = 0; y < s; y += 2) g.fillRect(0, y, s, 1);
+    g.fillStyle = '#1e1a10'; g.fillRect(0, 0, s, 3); g.fillRect(0, s / 2, s, 3); g.fillRect(0, 0, 3, s);
+  }, 2, 2),
   water: () => canvasTexture(64, (g, s) => {
     speckle(g, s, '#0d1622', 120, 300);
     g.fillStyle = 'rgba(120,40,40,0.25)';
@@ -84,6 +104,48 @@ function shojiTexture(stage) {
     for (let x = 0; x <= s; x += 16) g.fillRect(Math.min(x, s - 3), 0, 3, s);
     for (let y = 0; y <= s; y += 16) g.fillRect(0, Math.min(y, s - 3), s, 3);
   });
+}
+
+// Pantalla de TV: un canvas que se redibuja (estática, imagen del pozo, negro)
+export function makeScreen(w, h) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 48;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, 64, 48);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.NearestFilter;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+  const screen = { mesh, mode: 'off', light: null };
+  screen.draw = (mode) => {
+    if (mode === 'static') {
+      const img = g.createImageData(64, 48);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = Math.random() * 255;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+    } else if (mode === 'well') {                 // el pozo de Ringu
+      g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, 64, 48);
+      g.fillStyle = '#3a3a3a'; g.fillRect(0, 30, 64, 18);
+      g.fillStyle = '#5a5a5a'; g.fillRect(22, 22, 20, 14);
+      g.fillStyle = '#111'; g.fillRect(25, 22, 14, 3);
+      g.fillStyle = '#ddd'; g.fillRect(30, 14, 4, 9);   // figura saliendo
+      g.fillStyle = '#000'; g.fillRect(29, 11, 6, 7);    // pelo
+      for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.4})`; g.fillRect(Math.random() * 64, Math.random() * 48, 1, 1); }
+    } else if (mode === 'face') {                 // rostro pálido tras el pelo
+      g.fillStyle = '#050505'; g.fillRect(0, 0, 64, 48);
+      g.fillStyle = '#c8c8c0'; g.fillRect(24, 10, 16, 22);
+      g.fillStyle = '#000'; g.fillRect(22, 4, 20, 10); g.fillRect(22, 4, 6, 40); g.fillRect(36, 4, 6, 40);
+      g.fillRect(30, 18, 4, 3);                       // un ojo que mira
+      for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.4})`; g.fillRect(Math.random() * 64, Math.random() * 48, 1, 1); }
+    } else {
+      g.fillStyle = '#000'; g.fillRect(0, 0, 64, 48);
+    }
+    tex.needsUpdate = true;
+    screen.mode = mode;
+  };
+  return screen;
 }
 
 // Texto en kanji pintado con sangre (fondo transparente)
@@ -153,6 +215,9 @@ export class World {
       wood:   new THREE.MeshLambertMaterial({ map: TEX.wood() }),
       roof:   new THREE.MeshLambertMaterial({ map: TEX.roof() }),
       grave:  new THREE.MeshLambertMaterial({ map: TEX.grave() }),
+      plaster: new THREE.MeshLambertMaterial({ map: TEX.plaster() }),
+      tile:   new THREE.MeshLambertMaterial({ map: TEX.tile() }),
+      tatami: new THREE.MeshLambertMaterial({ map: TEX.tatami() }),
       dark:   new THREE.MeshLambertMaterial({ color: 0x1a1612 }),
       iron:   new THREE.MeshLambertMaterial({ color: 0x222226 }),
       tree:   new THREE.MeshLambertMaterial({ color: 0x2a2018 }),
@@ -160,6 +225,7 @@ export class World {
       water:  new THREE.MeshLambertMaterial({ map: TEX.water(), emissive: 0x050810 }),
     };
 
+    this.shojiWin = shojiTexture(0);
     this.buildLights();
     this.buildGround();
     this.buildBounds();
@@ -199,20 +265,62 @@ export class World {
     this.torch(gapX + gapW / 2 + 0.4, z + 0.8, false);
   }
 
+  // Casa japonesa: base de piedra, paredes de yeso con vigas, alero ancho
+  // y tejado de tejas a cuatro aguas, con ventanas de shoji iluminadas.
   house(x, z, w, d, h = 4) {
-    this.box(x, 0, z, w, h, d, this.mat.stone);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.75, 2.5, 4), this.mat.roof);
-    roof.position.set(x, h + 1.25, z);
+    this.box(x, 0, z, w, 0.5, d, this.mat.stone);
+    this.box(x, 0.5, z, w, h - 0.5, d, this.mat.plaster);
+    this.box(x, h, z, w + 1.8, 0.18, d + 1.8, this.mat.tile, false);   // alero
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.72, 1.8, 4), this.mat.tile);
+    roof.position.set(x, h + 1.0, z);
     roof.rotation.y = Math.PI / 4;
     roof.scale.set(w / Math.max(w, d), 1, d / Math.max(w, d));
     this.scene.add(roof);
-    // ventanas iluminadas (algunas)
-    if (Math.random() < 0.5) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ color: 0x6a3a10 }));
-      win.position.set(x + (x > 0 ? -w / 2 - 0.01 : w / 2 + 0.01), 2, z);
-      win.rotation.y = x > 0 ? -Math.PI / 2 : Math.PI / 2;
+    this.box(x, h + 1.75, z, 0.25, 0.25, d * 0.9, this.mat.dark, false); // cumbrera
+    // ventanas de shoji iluminadas hacia la calle
+    const face = x > 0 ? -1 : 1;
+    const lit = Math.random() < 0.6;
+    const winMat = new THREE.MeshBasicMaterial({ map: this.shojiWin, color: lit ? 0xffb070 : 0x3a3428 });
+    for (const dz of [-d / 4, d / 4]) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), winMat);
+      win.position.set(x + face * (w / 2 + 0.01), 2.1, z + dz);
+      win.rotation.y = face * Math.PI / 2;
       this.scene.add(win);
     }
+  }
+
+  // Linterna de piedra (tōrō)
+  toro(x, z, withLight = false) {
+    const st = this.mat.grave;
+    this.box(x, 0, z, 0.7, 0.25, 0.7, st);
+    this.box(x, 0.25, z, 0.25, 0.9, 0.25, st, false);
+    this.box(x, 1.15, z, 0.6, 0.12, 0.6, st, false);
+    const fire = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.42), new THREE.MeshBasicMaterial({ color: 0xffa040 }));
+    fire.position.set(x, 1.46, z);
+    this.scene.add(fire);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.4, 4), st);
+    cap.position.set(x, 1.85, z); cap.rotation.y = Math.PI / 4;
+    this.scene.add(cap);
+    let light = null;
+    if (withLight) {
+      light = new THREE.PointLight(0xff9a40, 5, 10, 1.5);
+      light.position.set(x, 1.5, z);
+      this.scene.add(light);
+    }
+    this.torches.push({ flame: fire, light, seed: Math.random() * 50 });
+  }
+
+  // Grupo de bambú
+  bamboo(x, z, n = 7) {
+    const mat = new THREE.MeshLambertMaterial({ color: 0x3a5a2a });
+    for (let i = 0; i < n; i++) {
+      const h = 5 + Math.random() * 3;
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, h, 5), mat);
+      c.position.set(x + (Math.random() - 0.5) * 2, h / 2, z + (Math.random() - 0.5) * 2);
+      c.rotation.z = (Math.random() - 0.5) * 0.12;
+      this.scene.add(c);
+    }
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(x - 1, 0, z - 1), new THREE.Vector3(x + 1, 3, z + 1)));
   }
 
   torch(x, z, withLight = true) {
@@ -311,13 +419,13 @@ export class World {
       this.solidMeshes.push(b);
       return b;
     };
-    add(0, 0, 12, 8.4, H, 0.4, m.stone);          // pared sur
-    add(4, 0, 8, 0.4, H, 8, m.stone);             // pared este
-    add(-4, 0, 8, 0.4, H, 8, m.stone);            // pared oeste (ventana)
-    add(-2.35, 0, 4, 3.7, H, 0.4, m.stone);       // pared norte izq.
-    add(2.35, 0, 4, 3.7, H, 0.4, m.stone);        // pared norte der.
-    add(0, 2.2, 4, 1.0, 1.0, 0.4, m.stone);       // dintel puerta
-    const floor = add(0, 0, 8, 7.8, 0.05, 7.8, m.wood);
+    add(0, 0, 12, 8.4, H, 0.4, m.plaster);        // pared sur
+    add(4, 0, 8, 0.4, H, 8, m.plaster);           // pared este
+    add(-4, 0, 8, 0.4, H, 8, m.plaster);          // pared oeste (ventana)
+    add(-2.35, 0, 4, 3.7, H, 0.4, m.plaster);     // pared norte izq.
+    add(2.35, 0, 4, 3.7, H, 0.4, m.plaster);      // pared norte der.
+    add(0, 2.2, 4, 1.0, 1.0, 0.4, m.plaster);     // dintel puerta
+    const floor = add(0, 0, 8, 7.8, 0.05, 7.8, m.tatami);
     floor.position.y = 0.02;
 
     // Techo plano interior y tejado
@@ -335,11 +443,18 @@ export class World {
     this.scene.add(win);
 
     // Cama, mesa y vela
-    add(2.6, 0, 10.4, 1.4, 0.5, 2.4, m.wood);
-    add(2.6, 0.5, 10.4, 1.3, 0.15, 2.3, new THREE.MeshLambertMaterial({ color: 0x5a4a3a }));
-    add(-2.5, 0, 10.5, 1.2, 0.8, 0.8, m.wood);
+    // futón en el suelo
+    add(2.6, 0.05, 10.4, 1.3, 0.18, 2.3, new THREE.MeshLambertMaterial({ color: 0xb8b0a0 }));
+    add(2.6, 0.23, 9.5, 1.3, 0.06, 0.6, new THREE.MeshLambertMaterial({ color: 0x8a2a20 }));
+    // televisor viejo (escena Ringu) sobre una mesa baja
+    add(-0.9, 0.05, 10.6, 1.1, 0.35, 0.8, m.wood);
+    add(-0.9, 0.4, 10.6, 0.8, 0.65, 0.7, new THREE.MeshLambertMaterial({ color: 0x1a1816 }));
+    this.tv = makeScreen(0.62, 0.48);
+    this.tv.mesh.position.set(-0.49, 0.72, 10.6);
+    this.tv.mesh.rotation.y = Math.PI / 2;
+    this.scene.add(this.tv.mesh);
     const candle = new THREE.PointLight(0xffa050, 2.5, 7, 1.5);
-    candle.position.set(-2.5, 1.2, 10.5);
+    candle.position.set(-2.5, 1.4, 9.2);
     this.scene.add(candle);
     this.candle = candle;
 
@@ -705,6 +820,58 @@ export class World {
 
     // Trozos de papel/madera del shoji roto
     this.debris = [];
+
+    // Linternas de piedra (tōrō) a lo largo del recorrido
+    [[-3, -10, true], [3, -10, false], [-5, -56, true], [5, -70, false], [-16, -108, true],
+     [-4, -157, true], [4, -157, false], [-2.5, -194, false], [2.5, -194, true]]
+      .forEach(([x, z, l]) => { this.toro(x, z, l); this.reserved.push({ x, z }); });
+
+    // Bambú junto a los muros
+    [[-26, -10], [26, -12], [-27, -66], [27, -38], [26, -110], [-27, -146], [25, -196], [-25, -206]]
+      .forEach(([x, z]) => { this.bamboo(x, z); this.reserved.push({ x, z }); });
+
+    // TV en la ventana de una casa de la aldea (escena)
+    this.villageTV = makeScreen(1.1, 0.85);
+    this.villageTV.mesh.position.set(15.98, 2.0, -68);
+    this.villageTV.mesh.rotation.y = -Math.PI / 2;
+    this.scene.add(this.villageTV.mesh);
+
+    // Kasa-obake: el paraguas de un ojo que salta (yōkai)
+    const kasa = new THREE.Group();
+    const paper = new THREE.MeshLambertMaterial({ color: 0x9a2a3a, emissive: 0x200508 });
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.9, 10), paper);
+    canopy.position.y = 1.5;
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    eyeW.position.set(0, 1.45, 0.45);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    pupil.position.set(0, 1.45, 0.6);
+    const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.4, 0.04), new THREE.MeshBasicMaterial({ color: 0xc02030 }));
+    tongue.position.set(0, 1.05, 0.5);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 5), new THREE.MeshLambertMaterial({ color: 0xc8b090 }));
+    leg.position.y = 0.55;
+    const geta = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.35), this.mat.wood);
+    geta.position.y = 0.04;
+    kasa.add(canopy, eyeW, pupil, tongue, leg, geta);
+    kasa.visible = false;
+    this.scene.add(kasa);
+    this.kasa = kasa;
+
+    // Manos que salen del suelo (cementerio)
+    this.hands = [];
+    const skin = new THREE.MeshLambertMaterial({ color: 0x9aa088 });
+    for (let i = 0; i < 6; i++) {
+      const h = new THREE.Group();
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), skin); arm.position.y = 0.4;
+      h.add(arm);
+      for (let f = 0; f < 4; f++) {
+        const fi = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.03), skin);
+        fi.position.set(-0.045 + f * 0.03, 0.88, 0); fi.rotation.x = 0.3;
+        h.add(fi);
+      }
+      h.visible = false;
+      this.scene.add(h);
+      this.hands.push(h);
+    }
   }
 
   // Rompe el shoji en pedazos (intro)

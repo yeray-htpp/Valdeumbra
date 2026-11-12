@@ -11,23 +11,24 @@
 //   4. Jizō que giran cuando no los miras           (entrada del cementerio)
 //   5. La campana del templo suena sola             (cementerio)
 //   6. Rostro en el relámpago                       (puente)
-//   7. Horda final: resistir hasta que el carruaje esté listo
+//   7. TV en una ventana: estática y un rostro       (aldea)
+//   8. Kasa-obake: un paraguas de un ojo cruza saltando (aldea)
+//   9. Manos que salen del suelo y te sujetan        (cementerio)
+//  10. Pasos detrás de ti... sin nadie               (antes del río)
 //  (El pozo de Ringu y el onryō están en zombies.js)
 // =====================================================================
 import * as THREE from 'three';
-import { EXTRACTION, HORDE_TIME } from './levelData.js';
 import { collidesCircle } from './world.js';
 import { sfx } from './sfx.js';
 
 const _f = new THREE.Vector3();
 
 export class Scares {
-  constructor({ world, zombies, hud, scene, camera }) {
-    Object.assign(this, { world, zombies, hud, scene, camera });
+  constructor({ world, zombies, hud, scene, camera, player }) {
+    Object.assign(this, { world, zombies, hud, scene, camera, player });
     this.done = new Set();
     this.spike = 0;            // pico de "miedo" para el glitch VHS
     this.timers = [];
-    this.horde = null;
 
     // Figura del onryō que aparece un instante en el puente
     this.ghost = zombies.createModel('onryo');
@@ -121,6 +122,59 @@ export class Scares {
       this.scare(0.5);
     });
 
+    // 7. TV en la ventana: estática, luego un rostro, luego nada
+    const tv = w.villageTV;
+    this.once('tv', Math.hypot(p.x - 14, p.z + 68) < 9, () => {
+      tv.mode = 'static';
+      sfx.staticNoise(2.2);
+      this.later(2.2, () => { tv.draw('face'); sfx.sting(); this.scare(0.9); });
+      this.later(2.9, () => { tv.draw('off'); });
+    });
+    if (tv.mode === 'static') tv.draw('static');
+
+    // 8. Kasa-obake: cruza la calle saltando y se ríe
+    this.once('kasa', p.z < -41 && p.z > -50, () => {
+      this.kasaT = 0;
+      w.kasa.visible = true;
+      sfx.giggle();
+    });
+    if (this.kasaT !== undefined && this.kasaT >= 0) {
+      this.kasaT += dt;
+      const k = this.kasaT / 3.5;
+      const hop = Math.abs(Math.sin(this.kasaT * Math.PI * 2.2));
+      w.kasa.position.set(-13 + 27 * k, hop * 0.8, -48);
+      w.kasa.rotation.y = Math.PI / 2 + Math.sin(this.kasaT * 6) * 0.3;
+      if (hop < 0.05 && (this.lastHop ?? 0) + 0.2 < this.kasaT) { this.lastHop = this.kasaT; sfx.boing(); }
+      if (k >= 1) { w.kasa.visible = false; this.kasaT = -1; }
+    }
+
+    // 9. Manos que salen del suelo alrededor del jugador
+    this.once('hands', p.z < -128 && p.z > -137, () => {
+      this.handsT = 0;
+      w.hands.forEach((h, i) => {
+        const a = (i / w.hands.length) * Math.PI * 2;
+        h.position.set(p.x + Math.cos(a) * 1.1, -0.9, p.z + Math.sin(a) * 1.1);
+        h.rotation.y = -a;
+        h.visible = true;
+      });
+      this.player.slowT = 2.2;
+      sfx.groan(0.6); sfx.hit();
+      this.scare(0.9);
+      this.hud.message('¡Algo te sujeta los pies!', 2000, 'danger');
+    });
+    if (this.handsT !== undefined && this.handsT >= 0) {
+      this.handsT += dt;
+      const up = this.handsT < 0.4 ? this.handsT / 0.4 : this.handsT > 2.4 ? Math.max(0, 1 - (this.handsT - 2.4)) : 1;
+      w.hands.forEach((h, i) => { h.position.y = -0.9 + up * 0.75; h.rotation.z = Math.sin(this.handsT * 8 + i) * 0.25; });
+      if (this.handsT > 3.5) { w.hands.forEach(h => { h.visible = false; }); this.handsT = -1; }
+    }
+
+    // 10. Pasos detrás de ti
+    this.once('steps', p.z < -151 && p.z > -158, () => {
+      for (let i = 0; i < 7; i++) sfx.step(i * 0.42);
+      this.later(3.0, () => { sfx.croak(0.35); this.scare(0.5); });
+    });
+
     // 6. Rostro en el relámpago (en medio del puente)
     this.once('bridge', p.z < -165 && p.z > -176, () => {
       w.flashLightning();
@@ -131,49 +185,5 @@ export class Scares {
       this.scare(1);
       this.later(0.45, () => { this.ghost.holder.visible = false; });
     });
-  }
-
-  // ------------------------------------------------------------------
-  //  Horda final: al llegar al carruaje hay que resistir HORDE_TIME s
-  // ------------------------------------------------------------------
-  startHorde() {
-    this.horde = { t: HORDE_TIME, elapsed: 0, idx: 0, drum: 0, finished: false };
-    this.world.extractRing.material.color.setHex(0xff3322);
-    this.hud.message('¡El carruaje aún no está listo! Resiste junto a él', 3500, 'danger');
-    sfx.bell();
-    this.scare(0.6);
-  }
-
-  // Devuelve true cuando termina la cuenta atrás
-  updateHorde(dt) {
-    const h = this.horde;
-    if (!h || h.finished) return h?.finished ?? false;
-    h.t -= dt;
-    h.elapsed += dt;
-
-    // tambores taiko, cada vez más rápidos
-    h.drum -= dt;
-    if (h.drum <= 0) { h.drum = 0.45 + 0.5 * (h.t / HORDE_TIME); sfx.taiko(); }
-
-    // oleadas alrededor del carruaje
-    const waves = [[0, 'errante'], [3, 'corredor'], [6, 'errante'], [10, 'errante'], [14, 'corredor'], [18, 'errante']];
-    while (h.idx < waves.length && h.elapsed >= waves[h.idx][0]) {
-      const a = Math.random() * Math.PI * 2;
-      const x = THREE.MathUtils.clamp(EXTRACTION.x + Math.cos(a) * 13, -26, 26);
-      const z = THREE.MathUtils.clamp(EXTRACTION.z + Math.sin(a) * 9, -214, -184);
-      const zb = this.zombies.spawn({ type: waves[h.idx][1], x, z });
-      this.zombies.activate(zb);
-      h.idx++;
-    }
-
-    this.hud.setHorde(Math.max(0, Math.ceil(h.t)));
-    if (h.t <= 0) {
-      h.finished = true;
-      this.hud.setHorde(null);
-      this.world.extractRing.material.color.setHex(0x66ccff);
-      sfx.bell();
-      return true;
-    }
-    return false;
   }
 }

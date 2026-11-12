@@ -2,7 +2,7 @@
 
 FPS en primera persona de estilo **dark fantasy retro** hecho con **Three.js (WebGL)** para la evaluación T3 de Computación Gráfica.
 
-> Valdeumbra, 1693. La luna se tiñó de rojo y los muertos despertaron. Despiertas en tu casa, un zombi derriba la puerta y el techo se derrumba. Sales de entre los escombros y tienes que cruzar la aldea, el cementerio y el Puente del Cuervo hasta el carruaje de los cazadores.
+> Valdeumbra, una aldea donde Europa y Japón se mezclan. La luna se tiñó de rojo y los muertos despertaron. Despiertas en tu cuarto de tatami: la TV se enciende sola, una silueta aparece tras el shoji, un zombi atraviesa el papel y el techo se derrumba. Sales de entre los escombros y tienes que cruzar la aldea, el cementerio y el Puente del Cuervo hasta el carruaje de los cazadores.
 
 ## Cómo ejecutar
 
@@ -52,7 +52,6 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Zona de extracción | Círculo de luz junto al carruaje y mensaje «¡MISIÓN COMPLETADA!» | `js/main.js`, `js/world.js` |
 | Game Over | Contacto con un zombi vivo: se detiene el bucle y aparece GAME OVER (R reinicia) | `js/main.js` |
 | Coleccionables | Cajas de munición, poción de velocidad y 4 notas del diario | `js/pickups.js` |
-| Horda final | Al llegar al carruaje hay que resistir 25 s mientras aparecen zombis, y luego aparece el mensaje de victoria | `js/scares.js` |
 | Dificultad | Munición limitada, 5 tipos de zombi, aulladores que despiertan a otros, guardián en el puente y barricadas | `js/levelData.js` |
 
 ### Tipos de zombi (todos mueren con 2 impactos)

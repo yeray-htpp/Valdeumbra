@@ -60,11 +60,6 @@ export const hud = {
     $('stamina').classList.toggle('tired', tired);
   },
 
-  setHorde(t) {
-    $('horde').classList.toggle('hidden', t === null);
-    if (t !== null) $('horde').textContent = `Resiste: ${t} s`;
-  },
-
   setDebug(on) { $('debug-tag').classList.toggle('hidden', !on); },
 
   screen(name) {

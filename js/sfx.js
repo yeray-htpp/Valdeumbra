@@ -102,6 +102,10 @@ function croak(vol = 0.3, delay = 0) {
 
 export const sfx = {
   croak,
+  staticNoise(dur = 2) { noise(dur, { freq: 3500, type: 'highpass', gain: 0.25, attack: 0.01 }); },
+  step(delay = 0) { noise(0.09, { freq: 160, gain: 0.9, delay }); },
+  boing(delay = 0) { tone(180, 420, 0.18, { type: 'triangle', gain: 0.3, delay }); },
+  giggle() { [0, 0.12, 0.24, 0.36, 0.5].forEach((d, i) => tone(900 - i * 60, 700 - i * 60, 0.1, { type: 'triangle', gain: 0.15, delay: d })); },
   taiko(delay = 0) { tone(90, 45, 0.5, { gain: 0.6, delay }); noise(0.12, { freq: 200, gain: 0.5, delay }); },
   bell()     { [220, 552, 880, 1320].forEach((f, i) => tone(f, f * 0.995, 5 - i, { gain: 0.22 / (i + 1) })); },
   whoosh(delay = 0) { noise(0.5, { freq: 900, type: 'bandpass', q: 1.5, gain: 0.35, attack: 0.15, delay }); },

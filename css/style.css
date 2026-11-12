@@ -33,10 +33,6 @@ html, body {
 #notes { position: absolute; top: 18px; right: 22px; color: var(--ember); }
 #boost { position: absolute; top: 46px; right: 22px; color: var(--spirit); }
 
-#horde {
-  position: absolute; top: 16%; left: 50%; transform: translateX(-50%);
-  font-family: var(--gothic); font-size: 46px; color: #ff5a4a; text-align: center;
-}
 #stamina {
   position: absolute; left: 22px; bottom: 56px; width: 160px; height: 8px;
   background: rgba(0, 0, 0, 0.6); border: 2px solid #000;

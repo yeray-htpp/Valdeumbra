@@ -87,7 +87,7 @@ async function init() {
   world.placeGraves([...ZOMBIES, ...pickups.points()]);
   for (const def of ZOMBIES) zombies.spawn(def);
 
-  scares = new Scares({ world, zombies, hud, scene, camera });
+  scares = new Scares({ world, zombies, hud, scene, camera, player });
   world.rain.visible = false;
 
   zombies.onEvent = (type) => {
@@ -96,7 +96,8 @@ async function init() {
     if (type === 'kill') hud.message('Zombi eliminado', 1200, 'good');
   };
 
-  intro = new Intro({ camera, scene, world, zombies, hud, onEnd: startPlay });
+  intro = new Intro({ camera, scene, world, zombies, hud, onEnd: startPlay,
+    onScare: v => { postfx.material.uniforms.uFear.value = v; } });
 
   hud.setAmmo(weapons);
   hud.setNotes(0, pickups.notesTotal);
@@ -255,16 +256,11 @@ function animate() {
       scares.update(dt, player.position, frustum);
       if (caught) gameOver();
 
-      // Extracción: al llegar empieza la horda; se gana al resistir dentro de la zona
+      // Extracción: al entrar al círculo de luz se gana
       const dEx = Math.hypot(player.position.x - EXTRACTION.x, player.position.z - EXTRACTION.z);
       const inZone = dEx < EXTRACTION.radius;
       hud.setDistance(dEx);
-      if (game.state === 'play' && inZone && !scares.horde) scares.startHorde();
-      const hordeDone = scares.updateHorde(dt);
-      if (game.state === 'play' && hordeDone) {
-        if (inZone) win();
-        else hud.message('¡El carruaje está listo! Vuelve al círculo de luz', 600, 'good');
-      }
+      if (game.state === 'play' && inZone) win();
 
       // glitch VHS: más fuerte cuanto más cerca está un zombi que te persigue
       const near = THREE.MathUtils.clamp(1 - zombies.nearest / 9, 0, 1);

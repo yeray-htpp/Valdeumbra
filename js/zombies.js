@@ -34,19 +34,35 @@ function fallbackZombie() {
   return g;
 }
 
-// Pelo negro largo del onryō (cubre la cara, al estilo de Sadako)
-function makeHair(s) {
+// Pelo negro largo del onryō (cubre la cara, al estilo de Sadako).
+// Se cuelga del hueso "Head" para que siga la animación.
+function makeHair() {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x050505 });
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.9, 0.3), mat);
-  back.position.set(0, 1.38, -0.04);
-  const front = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.75, 0.05), mat);
-  front.position.set(0, 1.42, 0.2);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.16, 0.44), mat);
-  top.position.set(0, 1.86, 0.03);
-  g.add(back, front, top);
-  g.scale.setScalar(s);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.95, 0.3), mat);
+  back.position.set(0, -0.08, -0.1);
+  const front = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.05), mat);
+  front.position.set(0, -0.03, 0.24);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.2, 0.5), mat);
+  top.position.set(0, 0.45, 0.02);
+  const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.8, 0.4), mat);
+  sideL.position.set(-0.24, 0, 0.05);
+  const sideR = sideL.clone(); sideR.position.x = 0.24;
+  g.add(back, front, top, sideL, sideR);
   return g;
+}
+
+function attachHair(model, holder, s) {
+  const hair = makeHair();
+  const head = model.getObjectByName('Head');
+  if (!head) { hair.position.y = 1.55 * s; hair.scale.setScalar(s); holder.add(hair); return; }
+  holder.updateMatrixWorld(true);
+  const ws = head.getWorldScale(new THREE.Vector3());
+  const wq = head.getWorldQuaternion(new THREE.Quaternion());
+  const hq = holder.getWorldQuaternion(new THREE.Quaternion());
+  hair.quaternion.copy(wq.invert().multiply(hq));    // vertical en la pose de reposo
+  hair.scale.set(s / ws.x, s / ws.y, s / ws.z);
+  head.add(hair);
 }
 
 export class ZombieManager {
@@ -124,7 +140,7 @@ export class ZombieManager {
     });
 
     holder.add(model);
-    if (type.ghost) holder.add(makeHair(s));
+    if (type.ghost) attachHair(model, holder, s);
     if (actions.idle) actions.idle.play();
     return { holder, model, mixer, actions, materials };
   }
@@ -317,11 +333,7 @@ export class ZombieManager {
       else if (z.stun > 0) { z.stun -= dt; }
       else if (z.hitT > 0) { /* se tambalea por el impacto */ }
       else if (dist > 0.01) {
-        const step = z.type.speed * dt;
-        const r = 0.35 * z.type.scale;
-        const nx = p.x + (dx / dist) * step, nz = p.z + (dz / dist) * step;
-        if (!collidesCircle(this.colliders, nx, p.z, r)) p.x = nx;
-        if (!collidesCircle(this.colliders, p.x, nz, r)) p.z = nz;
+        this.steer(z, dx / dist, dz / dist, z.type.speed * dt);
       }
       if (!z.mixer && z.model.userData.arms) {   // animación simple del respaldo
         z.wobble += dt * z.type.speed * 3;
@@ -334,7 +346,45 @@ export class ZombieManager {
       // Contacto con el jugador => atrapado
       if (dist < 0.75 + 0.35 * z.type.scale) caught = true;
     }
+    if (active) this.separate();
     return caught;
+  }
+
+  // Avanza en la dirección (ux, uz). Si un obstáculo lo bloquea, prueba
+  // girando ±35°, ±70°, ±110° y recuerda hacia qué lado rodeó.
+  steer(z, ux, uz, step) {
+    const p = z.root.position, r = 0.35 * z.type.scale;
+    const side = z.side || 1;
+    for (const a of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
+      const ang = a * side;
+      const c = Math.cos(ang), sn = Math.sin(ang);
+      const vx = ux * c - uz * sn, vz = ux * sn + uz * c;
+      const nx = p.x + vx * step, nz = p.z + vz * step;
+      if (!collidesCircle(this.colliders, nx, nz, r)) {
+        p.x = nx; p.z = nz;
+        if (a !== 0) { z.side = Math.sign(ang) || 1; z.root.rotation.y = Math.atan2(vx, vz); }
+        return true;
+      }
+    }
+    z.side = -side;                          // atascado: la próxima vez rodea por el otro lado
+    return false;
+  }
+
+  // Los zombis vivos se empujan para no quedar uno dentro del otro
+  separate() {
+    const alive = this.list.filter(z => z.state === 'chase');
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const a = alive[i].root.position, b = alive[j].root.position;
+        const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+        const min = 0.35 * (alive[i].type.scale + alive[j].type.scale) + 0.1;
+        if (d > 0.001 && d < min) {
+          const push = (min - d) / 2, ux = dx / d, uz = dz / d;
+          if (!collidesCircle(this.colliders, a.x - ux * push, a.z - uz * push, 0.3)) { a.x -= ux * push; a.z -= uz * push; }
+          if (!collidesCircle(this.colliders, b.x + ux * push, b.z + uz * push, 0.3)) { b.x += ux * push; b.z += uz * push; }
+        }
+      }
+    }
   }
 
   kills() { return this.list.filter(z => z.state === 'dead').length; }

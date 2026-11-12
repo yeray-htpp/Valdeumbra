@@ -83,13 +83,7 @@ export const PICKUPS = [
   { kind: 'ammo_shotgun', x: 19,  z: -154, amount: 4 },
   { kind: 'potion',       x: -24, z: -112 },
   { kind: 'ammo_pistol',  x: 8,   z: -64, amount: 6 },
-  // abastecimiento junto al carruaje para resistir la horda final
-  { kind: 'ammo_pistol',  x: -5,  z: -204, amount: 10 },
-  { kind: 'ammo_shotgun', x: 5,   z: -204, amount: 5 },
 ];
-
-// Horda final: segundos que hay que resistir en la extracción
-export const HORDE_TIME = 25;
 
 export const NOTES = [
   { x: -3, z: -6, title: 'Diario — día 1',
