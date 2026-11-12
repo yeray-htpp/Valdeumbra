@@ -4,10 +4,12 @@
 //   - Caja roja:     munición de ESCOPETA
 //   - Poción azul:   velocidad +50% por 8 s
 //   - Nota:          página del diario (historia)
+//   - Ofuda:         talismán; con 3 se rompe el sello del puente
+//   - Cajas pequeñas que sueltan algunos zombis al morir
 //  Se recogen al acercarse (distancia < 1.3 m).
 // =====================================================================
 import * as THREE from 'three';
-import { PICKUPS, NOTES } from './levelData.js';
+import { PICKUPS, NOTES, OFUDA_NEEDED } from './levelData.js';
 import { sfx } from './sfx.js';
 import { fitModel } from './world.js';
 
@@ -20,6 +22,7 @@ export class Pickups {
     this.items = [];
     this.notesFound = 0;
     this.notesTotal = NOTES.length;
+    this.ofuda = 0;
     this.time = 0;
 
     const mats = {
@@ -28,7 +31,9 @@ export class Pickups {
       potion:       new THREE.MeshLambertMaterial({ color: 0x40a0ff, emissive: 0x103060 }),
       note:         new THREE.MeshBasicMaterial({ color: 0xf0e6c8, side: THREE.DoubleSide }),
       band:         new THREE.MeshLambertMaterial({ color: 0x1a1a1a }),
+      ofuda:        new THREE.MeshBasicMaterial({ map: ofudaTexture(), side: THREE.DoubleSide }),
     };
+    this.mats = mats;
 
     for (const p of PICKUPS) this.add(p, mats);
     for (const n of NOTES) this.add({ ...n, kind: 'note' }, mats);
@@ -52,6 +57,13 @@ export class Pickups {
       const band = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.08, 0.4), mats.band);
       band.position.y = 0.05;
       mesh.add(band);
+    } else if (data.kind === 'ofuda') {
+      mesh = new THREE.Group();
+      mesh.add(new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.6), mats.ofuda));
+      const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.8),
+        new THREE.MeshBasicMaterial({ color: 0xffc060, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
+      halo.position.z = -0.01;
+      mesh.add(halo);
     } else if (data.kind === 'potion') {
       mesh = new THREE.Group();
       mesh.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), mats.potion));
@@ -61,15 +73,23 @@ export class Pickups {
     } else {
       mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.45), mats.note);
     }
+    if (data.drop) mesh.scale.setScalar(0.6);
     mesh.position.set(data.x, 0.7, data.z);
     this.scene.add(mesh);
     this.items.push({ data, mesh, taken: false, phase: Math.random() * 6 });
   }
 
+  // Caja pequeña que suelta un zombi al morir (sigue siendo un objeto
+  // del escenario que hay que ir a recoger)
+  addDrop(x, z) {
+    const pistol = Math.random() < 0.6;
+    this.add({ kind: pistol ? 'ammo_pistol' : 'ammo_shotgun', x, z, amount: pistol ? 3 : 2, drop: true }, this.mats);
+  }
+
   // Puntos que las lápidas deben evitar
   points() { return this.items.map(i => ({ x: i.data.x, z: i.data.z })); }
 
-  update(dt, playerPos, { weapons, player, hud }) {
+  update(dt, playerPos, { weapons, player, hud, world }) {
     this.time += dt;
     for (const it of this.items) {
       if (it.taken) continue;
@@ -94,6 +114,17 @@ export class Pickups {
         player.boost(8);
         hud.message('Poción de celeridad: ¡más velocidad por 8 s!', 2200, 'good');
         sfx.pickup();
+      } else if (k === 'ofuda') {
+        this.ofuda++;
+        hud.setOfuda(this.ofuda, OFUDA_NEEDED);
+        sfx.note();
+        if (this.ofuda >= OFUDA_NEEDED) {
+          world.unseal();
+          sfx.bell();
+          hud.message('¡El sello del puente se ha roto!', 3500, 'good');
+        } else {
+          hud.message(`Ofuda ${this.ofuda}/${OFUDA_NEEDED}: el sello del puente se debilita`, 2500, 'good');
+        }
       } else if (k === 'note') {
         this.notesFound++;
         hud.showNote(it.data.title, it.data.text);
@@ -102,4 +133,20 @@ export class Pickups {
       }
     }
   }
+}
+
+// Talismán de papel con caracteres rojos
+function ofudaTexture() {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = '#efe6cc'; g.fillRect(0, 0, 32, 96);
+  g.fillStyle = '#b01010';
+  g.font = 'bold 22px serif'; g.textAlign = 'center';
+  ['封', '鬼', '退'].forEach((ch, i) => g.fillText(ch, 16, 26 + i * 28));
+  g.strokeStyle = '#b01010'; g.strokeRect(2, 2, 28, 92);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.magFilter = THREE.NearestFilter;
+  return t;
 }

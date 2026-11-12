@@ -712,6 +712,7 @@ export class World {
   buildJapanese() {
     const red = new THREE.MeshLambertMaterial({ color: 0xa01810 });
     const black = new THREE.MeshLambertMaterial({ color: 0x141010 });
+    this.shideMat = new THREE.MeshBasicMaterial({ color: 0xe8e4d8, side: THREE.DoubleSide });
     this.reserved = [];                          // lugares donde no van lápidas
 
     // Torii (portales rojos) en la aldea, el cementerio y el puente
@@ -720,6 +721,10 @@ export class World {
       this.box(x + 2.7, 0, z, 0.36, 4.2, 0.36, red);
       this.box(x, 3.5, z, 6.0, 0.25, 0.25, red, false);
       this.box(x, 4.2, z, 7.0, 0.32, 0.5, black, false);
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 5.2, 6), new THREE.MeshLambertMaterial({ color: 0xc8b078 }));
+      rope.rotation.z = Math.PI / 2; rope.position.set(x, 3.15, z);
+      this.scene.add(rope);
+      for (const dx of [-1.6, -0.5, 0.5, 1.6]) this.box(x + dx, 2.7, z, 0.12, 0.38, 0.02, this.shideMat, false);
     };
     torii(0, -17);
     torii(-14, -87);
@@ -821,6 +826,53 @@ export class World {
     // Trozos de papel/madera del shoji roto
     this.debris = [];
 
+    // Hokora: pequeño santuario en el callejón (guarda un ofuda)
+    const hx = -27.6, hz = -55.6;
+    this.box(hx, 0, hz, 1.2, 0.6, 1.0, this.mat.grave);
+    this.box(hx, 0.6, hz, 0.9, 0.8, 0.8, this.mat.wood);
+    const hr = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.5, 4), this.mat.tile);
+    hr.position.set(hx, 1.65, hz); hr.rotation.y = Math.PI / 4;
+    this.scene.add(hr);
+    const hl = new THREE.PointLight(0xff5030, 3, 6, 1.5);
+    hl.position.set(hx + 0.8, 1.2, hz + 1);
+    this.scene.add(hl);
+
+    // Higanbana (lirios rojos, la flor de los muertos) en el cementerio y la orilla
+    const petal = new THREE.MeshBasicMaterial({ color: 0xc0101a });
+    const stem = new THREE.MeshLambertMaterial({ color: 0x2a4a1a });
+    const flowers = [];
+    const rr = seeded(99);
+    for (let i = 0; i < 70; i++) {
+      const x = (rr() - 0.5) * 52, z = -95 - rr() * 70;
+      if (z < -160 && z > -178) continue;                  // no en el río
+      flowers.push([x, z]);
+    }
+    for (const [x, z] of flowers) {
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.45, 0.03), stem);
+      st.position.set(x, 0.22, z); this.scene.add(st);
+      for (let k = 0; k < 3; k++) {
+        const pe = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.04), petal);
+        pe.position.set(x, 0.47, z); pe.rotation.set(0.5, k * 1.05, 0.3);
+        this.scene.add(pe);
+      }
+    }
+
+    // Sello mágico (fūin) que bloquea el puente hasta reunir los ofuda
+    const sealTex = kanjiTexture('封');
+    this.barrier = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 3.2), new THREE.MeshBasicMaterial({
+      color: 0xb060ff, map: sealTex, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    this.barrier.position.set(0, 1.6, -161.8);
+    this.scene.add(this.barrier);
+    this.barrierGlow = new THREE.PointLight(0x9a40ff, 6, 10, 1.4);
+    this.barrierGlow.position.set(0, 1.5, -160.8);
+    this.scene.add(this.barrierGlow);
+    this.barrierBox = new THREE.Box3(new THREE.Vector3(-2.3, 0, -162.3), new THREE.Vector3(2.3, 3, -161.3));
+    this.colliders.push(this.barrierBox);
+    this.sealed = true;
+    this.reserved.push({ x: hx, z: hz });
+
     // Linternas de piedra (tōrō) a lo largo del recorrido
     [[-3, -10, true], [3, -10, false], [-5, -56, true], [5, -70, false], [-16, -108, true],
      [-4, -157, true], [4, -157, false], [-2.5, -194, false], [2.5, -194, true]]
@@ -888,6 +940,15 @@ export class World {
     }
   }
 
+  // Rompe el sello del puente
+  unseal() {
+    if (!this.sealed) return;
+    this.sealed = false;
+    const i = this.colliders.indexOf(this.barrierBox);
+    if (i >= 0) this.colliders.splice(i, 1);
+    this.unsealT = 1;
+  }
+
   ringBell() { this.bellT = 3; }
   dim(seconds) { this.dimT = seconds; }
 
@@ -919,6 +980,16 @@ export class World {
   }
 
   updateJapanese(dt) {
+    // sello: pulsa mientras está activo y se desvanece al romperse
+    if (this.sealed) {
+      this.barrier.material.opacity = 0.6 + Math.sin(this.time * 4) * 0.25;
+    } else if (this.unsealT > 0) {
+      this.unsealT -= dt * 0.7;
+      this.barrier.material.opacity = Math.max(0, this.unsealT);
+      this.barrier.scale.y = 1 + (1 - this.unsealT) * 2;
+      this.barrierGlow.intensity = 6 * Math.max(0, this.unsealT);
+      if (this.unsealT <= 0) this.barrier.visible = false;
+    }
     // campana
     if (this.bellT > 0) {
       this.bellT -= dt;

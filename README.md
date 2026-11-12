@@ -52,24 +52,41 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Zona de extracción | Círculo de luz junto al carruaje y mensaje «¡MISIÓN COMPLETADA!» | `js/main.js`, `js/world.js` |
 | Game Over | Contacto con un zombi vivo: se detiene el bucle y aparece GAME OVER (R reinicia) | `js/main.js` |
 | Coleccionables | Cajas de munición, poción de velocidad y 4 notas del diario | `js/pickups.js` |
+| Ofuda y sello | El puente tiene un sello mágico (封). Hay que encontrar **3 ofuda** (talismanes) para romperlo | `js/pickups.js`, `js/world.js` |
+| Munición extra | Algunos zombis sueltan una caja pequeña al morir (hay que ir a recogerla) | `js/pickups.js` |
 | Dificultad | Munición limitada, 5 tipos de zombi, aulladores que despiertan a otros, guardián en el puente y barricadas | `js/levelData.js` |
 
-### Tipos de zombi (todos mueren con 2 impactos)
+### Tipos de zombi (todos mueren con exactamente 2 impactos)
 
-| Tipo | Modelo | Velocidad | Rango | Detalle |
+| Tipo | Modelo GLB | Velocidad | Rango | Detalle |
 |---|---|---|---|---|
 | Errante | zombie_basic | 1.6 m/s | 12 m | camina |
 | Corredor | zombie_arm | 4.0 m/s | 9 m | corre |
-| Onryō | zombie_basic + pelo | 4.2 m/s | 15 m | solo avanza cuando no lo miras |
-| Del pozo | zombie_basic | 1.3 m/s | 8 m | sale arrastrándose del pozo |
-| Arrastrado | zombie_basic | 0.9 m/s | 6 m | se arrastra por el suelo, difícil de apuntar |
+| Arrastrado | zombie_basic | 0.9 m/s | 6 m | se arrastra, difícil de apuntar |
 | Aullador | zombie_ribcage | 2.4 m/s | 14 m | al detectarte despierta a los zombis a 15 m |
-| Guardián | zombie_chubby | 3.0 m/s | 16 m | gigante (×1.8), vigila el puente |
+| Gordo | zombie_chubby | 1.2 m/s | 10 m | lento y grande |
+| **Onryō** | jz_onryo | 4.2 m/s | 15 m | fantasma de kimono blanco: **solo avanza cuando no lo miras** |
+| **La del pozo** | jz_onryo | 1.4 m/s | 8 m | sale arrastrándose del pozo |
+| **Monje** | jz_monk | 1.3 m/s | 12 m | sombrero de paja y bastón |
+| **Colegiala** | jz_schoolgirl | 2.1 m/s | 11 m | uniforme de marinera |
+| **Kuchisake-onna** | jz_kuchisake | 4.4 m/s | 11 m | aparece en una cinemática: "¿Soy bonita?" |
+| **Teke-teke** | jz_teketeke | 3.6 m/s | 10 m | medio cuerpo, se arrastra rapidísimo |
+| **Ochimusha** | jz_ochimusha | 2.8 m/s | 16 m | samurái caído gigante que guarda el puente |
+
+Los modelos **jz_*** los creé yo por código en `tools/forge.js` (ver más abajo).
 
 ### Escenas de terror (inspiradas en el j-horror)
 
 | Escena | Dónde | Cómo funciona |
 |---|---|---|
+| Kuchisake-onna (cinemática) | Final de la aldea | La cámara gira sola y hace zoom: "¿Soy bonita?"... se quita la mascarilla y corre hacia ti |
+| Apagón | Callejón izquierdo | Todo se pone negro, se oye una respiración y al volver la luz el onryō está delante |
+| Teke-teke (cinemática) | Cementerio | Se oye "teke teke" y la cámara se gira hacia atrás |
+| Ochimusha (cinemática) | Puente | La cámara muestra al samurái que guarda el paso |
+| TV en la ventana | Aldea | Estática y luego un rostro |
+| Kasa-obake | Aldea | Un paraguas de un ojo cruza la calle saltando |
+| Manos del suelo | Cementerio | Salen manos que te frenan |
+| Pasos detrás de ti | Antes del río | Se oyen pasos... sin nadie |
 | Silueta tras el shoji | Intro | Con cada relámpago la textura del papel muestra una silueta cada vez más cerca, y el onryō rompe el papel |
 | Farolillos que se apagan | Entrada de la aldea | Los chōchin se apagan uno a uno hacia el jugador y aparece un zombi a su espalda |
 | La puerta que golpea | Calle izquierda | La puerta golpea cada vez más fuerte; al acercarte se abre y sale un corredor |
@@ -88,6 +105,12 @@ La escena se renderiza en un `WebGLRenderTarget` de 240 px de alto y luego se di
 
 Los sonidos se generan con la **Web Audio API** (ruido y osciladores), así que no hay archivos de audio.
 
+## Personajes creados por código (`tools/forge.js`)
+
+Los 6 personajes japoneses se construyen con Three.js como una jerarquía de articulaciones (`Hips → Spine → Head`, brazos y piernas). Cada parte del cuerpo es una caja o un cilindro que cuelga de su articulación. Sus animaciones (Idle, Walk, Run, Crawl, Death, HitReact y Punch) son pistas de rotación por keyframes (`QuaternionKeyframeTrack`). Al final se exportan a `.glb` con `GLTFExporter`.
+
+Para regenerarlos: con el servidor local abierto, visita `tools/forge.html` (vista previa) o `tools/forge.html?save=1`. Guardar necesita un servidor que acepte `PUT`; con `python -m http.server` solo se ve la vista previa.
+
 ## Estructura
 
 ```
@@ -103,6 +126,7 @@ js/pickups.js     coleccionables
 js/intro.js       cinemática inicial (shoji)
 js/scares.js      escenas de terror y horda final
 js/postfx.js      shader retro (vertex + fragment GLSL)
+tools/forge.js    creación de los personajes j-horror y exportación a GLB
 js/hud.js         interfaz
 js/sfx.js         sonidos generados con Web Audio
 models/           pistol.glb, shotgun.glb, zombie_*.glb (4 zombis), env_*.glb (barriles, pallets, cofres, sangre)
@@ -118,4 +142,4 @@ models/           pistol.glb, shotgun.glb, zombie_*.glb (4 zombis), env_*.glb (b
   - Se convirtieron de `.gltf` a `.glb` (formato binario) para el proyecto.
 - **Fuentes:** Pirata One y VT323 — SIL Open Font License — Google Fonts
 
-El escenario, las texturas (generadas en canvas), los sonidos y el shader son propios.
+El escenario, las texturas (generadas en canvas), los sonidos, el shader y los personajes `jz_*.glb` son propios.

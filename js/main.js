@@ -16,7 +16,7 @@ import { Scares } from './scares.js';
 import { PostFX } from './postfx.js';
 import { hud } from './hud.js';
 import { sfx, initAudio, setRain } from './sfx.js';
-import { START, EXTRACTION, ZOMBIES, ZOMBIE_MODELS } from './levelData.js';
+import { START, EXTRACTION, ZOMBIES, ZOMBIE_MODELS, OFUDA_NEEDED, DROP_CHANCE } from './levelData.js';
 
 // ---------- Renderer, escena y cámara (con proyección en perspectiva) ----------
 const canvas = document.getElementById('game');
@@ -56,7 +56,7 @@ async function init() {
   const files = {
     pistol: WEAPON_DEFS.pistol.file,
     shotgun: WEAPON_DEFS.shotgun.file,
-    ...Object.fromEntries(ZOMBIE_MODELS.map(m => ['zombie_' + m, `models/zombie_${m}.glb`])),
+    ...Object.fromEntries(Object.entries(ZOMBIE_MODELS).map(([k, file]) => ['z_' + k, `models/${file}.glb`])),
     ...Object.fromEntries(PROP_MODELS.map(m => [m, `models/env_${m}.glb`])),
   };
   const keys = Object.keys(files);
@@ -80,7 +80,7 @@ async function init() {
   player = new Player(camera, document.body, world.colliders);
   weapons = new Weapons(camera, { pistol, shotgun }, hud);
   world.addProps(M);
-  zombies = new ZombieManager(scene, Object.fromEntries(ZOMBIE_MODELS.map(m => [m, M['zombie_' + m]])), world.colliders);
+  zombies = new ZombieManager(scene, Object.fromEntries(Object.keys(ZOMBIE_MODELS).map(k => [k, M['z_' + k]])), world.colliders);
   pickups = new Pickups(scene, M);
 
   // las lápidas evitan los lugares de zombis y objetos
@@ -90,7 +90,9 @@ async function init() {
   scares = new Scares({ world, zombies, hud, scene, camera, player });
   world.rain.visible = false;
 
-  zombies.onEvent = (type) => {
+  zombies.onEvent = (type, z) => {
+    // algunos zombis sueltan una caja pequeña de munición
+    if (type === 'kill' && Math.random() < DROP_CHANCE) pickups.addDrop(z.root.position.x, z.root.position.z);
     if (type === 'howl') { hud.message('¡Un aullido despierta a los muertos cercanos!', 2500, 'danger'); scares.scare(0.5); }
     if (type === 'emerge') scares.scare(1);
     if (type === 'kill') hud.message('Zombi eliminado', 1200, 'good');
@@ -101,6 +103,7 @@ async function init() {
 
   hud.setAmmo(weapons);
   hud.setNotes(0, pickups.notesTotal);
+  hud.setOfuda(0, OFUDA_NEEDED);
   bindEvents();
 
   // vista de fondo del menú: dentro de la casa
@@ -199,7 +202,7 @@ function bindEvents() {
 
   // Disparo: 'mousedown' ocurre UNA vez por clic -> no hay disparo automático
   document.addEventListener('mousedown', e => {
-    if (e.button !== 0 || game.state !== 'play' || !player.controls.isLocked) return;
+    if (e.button !== 0 || game.state !== 'play' || !player.controls.isLocked || scares.cut) return;
     const z = weapons.shoot(zombies, world.solidMeshes, scene);
     if (z) hud.hitMarker();
   });
@@ -239,10 +242,15 @@ function animate() {
     if (game.state === 'intro') intro.update(dt);
     if (game.state !== 'play') postfx.material.uniforms.uFear.value *= 0.95;
 
-    if (game.state === 'play') {
+    if (game.state === 'play' && scares.cut) {
+      // cinemática: la cámara se mueve sola y el mundo se detiene
+      scares.updateCut(dt);
+      weapons.update(dt, false, scene);
+      postfx.material.uniforms.uFear.value = Math.max(postfx.material.uniforms.uFear.value * 0.96, scares.spike);
+    } else if (game.state === 'play') {
       player.update(dt);
       weapons.update(dt, player.moving, scene);
-      pickups.update(dt, player.position, { weapons, player, hud });
+      pickups.update(dt, player.position, { weapons, player, hud, world });
       hud.setBoost(player.boostTime);
 
       hud.setStamina(player.stamina, player.exhausted);

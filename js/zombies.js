@@ -103,7 +103,7 @@ export class ZombieManager {
 
     if (info) {
       model = SkeletonUtils.clone(info.gltf.scene);
-      const k = (BASE_HEIGHT * s) / info.height;
+      const k = (type.height ?? BASE_HEIGHT * s) / info.height;
       model.scale.setScalar(k);
       model.position.y = -info.minY * k;
       mixer = new THREE.AnimationMixer(model);
@@ -140,7 +140,7 @@ export class ZombieManager {
     });
 
     holder.add(model);
-    if (type.ghost) attachHair(model, holder, s);
+    if (type.hair) attachHair(model, holder, s);
     if (actions.idle) actions.idle.play();
     return { holder, model, mixer, actions, materials };
   }

@@ -102,6 +102,8 @@ function croak(vol = 0.3, delay = 0) {
 
 export const sfx = {
   croak,
+  teke(dur = 1.6) { for (let t = 0; t < dur; t += 0.11) noise(0.04, { freq: 1800, type: 'bandpass', q: 4, gain: 0.5, delay: t }); },
+  breath() { noise(0.9, { freq: 700, gain: 0.35, attack: 0.4 }); noise(0.7, { freq: 500, gain: 0.3, attack: 0.3, delay: 1.0 }); },
   staticNoise(dur = 2) { noise(dur, { freq: 3500, type: 'highpass', gain: 0.25, attack: 0.01 }); },
   step(delay = 0) { noise(0.09, { freq: 160, gain: 0.9, delay }); },
   boing(delay = 0) { tone(180, 420, 0.18, { type: 'triangle', gain: 0.3, delay }); },

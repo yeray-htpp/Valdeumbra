@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forja de personajes</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #120608; color: #e6dcc4; font: 16px monospace; overflow: hidden; }
+    #info { position: fixed; top: 10px; left: 12px; }
+    canvas { display: block; }
+  </style>
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <div id="info">Forja de personajes j-horror · ?save=1 guarda models/jz_*.glb · ?anim=Walk|Run|Crawl|Idle|Death</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { CHARACTERS, exportGLB } from './forge.js';
+
+    const q = new URLSearchParams(location.search);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2a1a1c);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x302020, 2.2));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.5); dl.position.set(3, 5, 6); scene.add(dl);
+    const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(0, 1.4, 9.5);
+    camera.lookAt(0, 0.9, 0);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 6), new THREE.MeshStandardMaterial({ color: 0x3a3030 }));
+    floor.rotation.x = -Math.PI / 2; scene.add(floor);
+
+    const names = Object.keys(CHARACTERS);
+    const mixers = [];
+    const log = [];
+    for (let i = 0; i < names.length; i++) {
+      const { buf, root, clips } = await exportGLB(names[i]);
+      root.position.x = (i - (names.length - 1) / 2) * 1.6;
+      root.rotation.y = q.has('back') ? Math.PI : 0.35;
+      scene.add(root);
+      const mixer = new THREE.AnimationMixer(root);
+      const c = clips.find(c => c.name === (q.get('anim') || 'Walk')) || clips[0];
+      const a = mixer.clipAction(c); a.play();
+      if (q.has('t')) mixer.setTime(+q.get('t'));
+      mixers.push(mixer);
+      if (q.has('save')) {
+        const res = await fetch(`../models/jz_${names[i]}.glb`, { method: 'PUT', body: buf });
+        log.push(`${names[i]}: ${res.status} (${buf.byteLength} bytes)`);
+      }
+    }
+    if (log.length) { document.getElementById('info').textContent = log.join(' | '); console.log('FORGE ' + log.join(' | ')); }
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const dt = q.has('t') ? 0 : clock.getDelta();
+      mixers.forEach(m => m.update(dt));
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+</html>

@@ -15,6 +15,12 @@
 //   8. Kasa-obake: un paraguas de un ojo cruza saltando (aldea)
 //   9. Manos que salen del suelo y te sujetan        (cementerio)
 //  10. Pasos detrás de ti... sin nadie               (antes del río)
+//
+//  Cinemáticas de cámara (la cámara se gira sola y hace zoom):
+//  11. Kuchisake-onna: "¿Soy bonita?"... y se quita la mascarilla
+//  12. Apagón: todo se pone negro y al volver la luz hay algo delante
+//  13. Teke-teke: "teke, teke, teke"... la cámara se gira hacia atrás
+//  14. El ochimusha guarda el puente
 //  (El pozo de Ringu y el onryō están en zombies.js)
 // =====================================================================
 import * as THREE from 'three';
@@ -22,6 +28,10 @@ import { collidesCircle } from './world.js';
 import { sfx } from './sfx.js';
 
 const _f = new THREE.Vector3();
+const _m = new THREE.Matrix4();
+const _qt = new THREE.Quaternion();
+const _up = new THREE.Vector3(0, 1, 0);
+const smooth = t => t * t * (3 - 2 * t);
 
 export class Scares {
   constructor({ world, zombies, hud, scene, camera, player }) {
@@ -35,6 +45,42 @@ export class Scares {
     this.ghost.holder.position.set(0, 0, -181);
     this.ghost.holder.visible = false;
     scene.add(this.ghost.holder);
+  }
+
+  // ------------------------------------------------------------------
+  //  Cinemática: la cámara mira a `target` con zoom (fov) durante `dur`
+  //  segundos y luego vuelve exactamente a donde miraba el jugador.
+  //  Mientras dura, el juego queda en pausa (nadie se mueve).
+  // ------------------------------------------------------------------
+  startCut({ target, dur = 3, fov = 40, events = [], onEnd }) {
+    this.cut = {
+      t: 0, target, dur, fov, onEnd,
+      events: events.map(([t, fn]) => ({ t, fn, done: false })),
+      q0: this.camera.quaternion.clone(), fov0: this.camera.fov,
+    };
+    document.body.classList.add('cinema');
+  }
+
+  updateCut(dt) {
+    const c = this.cut;
+    c.t += dt;
+    for (const e of c.events) if (!e.done && c.t >= e.t) { e.done = true; e.fn(); }
+    const tgt = typeof c.target === 'function' ? c.target() : c.target;
+    _m.lookAt(this.camera.position, tgt, _up);
+    _qt.setFromRotationMatrix(_m);
+    const k = smooth(Math.min(1, c.t / 0.7)) * smooth(Math.min(1, Math.max(0, c.dur - c.t) / 0.7));
+    this.camera.quaternion.slerpQuaternions(c.q0, _qt, k);
+    this.camera.fov = THREE.MathUtils.lerp(c.fov0, c.fov, k);
+    this.camera.updateProjectionMatrix();
+    if (c.t >= c.dur) {
+      this.camera.quaternion.copy(c.q0);
+      this.camera.fov = c.fov0;
+      this.camera.updateProjectionMatrix();
+      this.cut = null;
+      document.body.classList.remove('cinema');
+      this.hud.caption(null);
+      if (c.onEnd) c.onEnd();
+    }
   }
 
   once(id, cond, fn) {
@@ -173,6 +219,76 @@ export class Scares {
     this.once('steps', p.z < -151 && p.z > -158, () => {
       for (let i = 0; i < 7; i++) sfx.step(i * 0.42);
       this.later(3.0, () => { sfx.croak(0.35); this.scare(0.5); });
+    });
+
+    // 11. Kuchisake-onna bajo los farolillos
+    this.once('kuchisake', p.z < -60 && p.z > -68 && Math.abs(p.x) < 10, () => {
+      const k = this.zombies.spawn({ type: 'kuchisake', x: 12, z: -71 });
+      k.root.rotation.y = Math.atan2(p.x - 12, p.z + 71);
+      const mask = k.model.getObjectByName('Mask');
+      sfx.whoosh();
+      this.startCut({
+        target: new THREE.Vector3(12, 1.75, -71), dur: 5.2, fov: 22,
+        events: [
+          [0.8, () => this.hud.caption('「わたし、きれい？」 — ¿Soy bonita?')],
+          [2.8, () => { if (mask) mask.visible = false; sfx.sting(); this.scare(1); this.hud.caption('「これでも？」 — ¿Y ahora?'); }],
+          [4.2, () => { this.hud.caption(null); sfx.giggle(); }],
+        ],
+        onEnd: () => this.zombies.activate(k),
+      });
+    });
+
+    // 12. Apagón en el callejón: negro, respiración... algo delante
+    this.once('blackout', Math.hypot(p.x + 27, p.z + 48) < 3.5, () => {
+      this.hud.fade(1, 0.05);
+      sfx.breath();
+      this.later(1.6, () => {
+        this.camera.getWorldDirection(_f); _f.y = 0; _f.normalize();
+        this.ghost.holder.position.set(p.x + _f.x * 1.3, 0, p.z + _f.z * 1.3);
+        this.ghost.holder.lookAt(p.x, 0, p.z);
+        this.ghost.holder.visible = true;
+        this.hud.fade(0, 0.05);
+        sfx.sting(); sfx.croak(0.6);
+        this.scare(1);
+      });
+      this.later(2.3, () => { this.hud.fade(1, 0.05); });
+      this.later(2.6, () => { this.ghost.holder.visible = false; this.hud.fade(0, 0.4); });
+    });
+
+    // 13. Teke-teke: se oye detrás y la cámara se gira sola
+    this.once('teke', p.z < -138 && p.z > -147, () => {
+      sfx.teke(2.4);
+      const t = this.spawnBehind('teketeke', p, 13);
+      if (!t) return;
+      t.state = 'idle';
+      this.startCut({
+        target: () => t.root.position.clone().setY(0.4), dur: 2.8, fov: 35,
+        events: [[0.9, () => { sfx.sting(); this.scare(0.9); this.hud.caption('teke… teke… teke…'); }]],
+        onEnd: () => { this.zombies.activate(t); sfx.teke(1.5); },
+      });
+    });
+
+    // Aviso del sello del puente
+    if (w.sealed && Math.hypot(p.x, p.z + 160) < 4.5) {
+      this.sealMsgT = (this.sealMsgT ?? 0) - dt;
+      if (this.sealMsgT <= 0) {
+        this.sealMsgT = 3;
+        this.hud.message('Un sello (封) bloquea el puente: reúne 3 ofuda', 2800, 'danger');
+      }
+    }
+
+    // 14. El ochimusha guarda el puente
+    const guard = this.zombies.list.find(z => z.typeKey === 'guardian');
+    this.once('samurai', !w.sealed && p.z < -163 && p.z > -170 && guard && guard.state === 'idle', () => {
+      w.flashLightning();
+      this.startCut({
+        target: guard.root.position.clone().setY(2.4), dur: 3.6, fov: 28,
+        events: [
+          [0.6, () => { this.hud.caption('Un ochimusha, un samurái caído, guarda el paso…'); sfx.taiko(); sfx.taiko(0.5); }],
+          [2.0, () => { sfx.groan(0.8); this.scare(0.6); }],
+        ],
+        onEnd: () => this.zombies.activate(guard),
+      });
     });
 
     // 6. Rostro en el relámpago (en medio del puente)

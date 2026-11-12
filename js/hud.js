@@ -46,6 +46,11 @@ export const hud = {
     noteTimer = setTimeout(() => $('note-card').classList.add('hidden'), 7000);
   },
 
+  setOfuda(n, total) {
+    $('ofuda').textContent = n >= total ? 'Sello del puente roto' : `Ofuda ${n}/${total}`;
+    $('ofuda').classList.toggle('done', n >= total);
+  },
+
   setNotes(found, total) { $('notes').textContent = `Notas del diario ${found}/${total}`; },
 
   setDistance(m) { $('distance').textContent = `${Math.max(0, Math.round(m))} m`; },
