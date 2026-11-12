@@ -109,7 +109,7 @@ Los sonidos se generan con la **Web Audio API** (ruido y osciladores), así que 
 
 Los 6 personajes japoneses se construyen con Three.js como una jerarquía de articulaciones (`Hips → Spine → Head`, brazos y piernas). Cada parte del cuerpo es una caja o un cilindro que cuelga de su articulación. Sus animaciones (Idle, Walk, Run, Crawl, Death, HitReact y Punch) son pistas de rotación por keyframes (`QuaternionKeyframeTrack`). Al final se exportan a `.glb` con `GLTFExporter`.
 
-Para regenerarlos: con el servidor local abierto, visita `tools/forge.html` (vista previa) o `tools/forge.html?save=1`. Guardar necesita un servidor que acepte `PUT`; con `python -m http.server` solo se ve la vista previa.
+Para regenerarlos: con el servidor local abierto, visita `tools/forge.html` (vista previa) o `tools/forge.html?save=1`. Para guardar se usa `python tools/serve.py . 8000` (un servidor sin caché que acepta `PUT` solo en `models/*.glb`). Con `python -m http.server` solo se ve la vista previa.
 
 ## Estructura
 
