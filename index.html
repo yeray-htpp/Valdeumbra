@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Valdeumbra — Operación Extracción</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Three.js r160 desde CDN (sin instalar nada) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <div id="objective">
+      <div>Llega al carruaje de los cazadores</div>
+      <div id="distance">205 m</div>
+    </div>
+    <div id="notes">Notas del diario 0/4</div>
+    <div id="boost" class="hidden">Celeridad 8</div>
+
+    <div id="crosshair"></div>
+    <div id="message"></div>
+
+    <div id="weapon">
+      <div id="ammo-big"><span id="ammo-count">12</span><span id="ammo-name">Pistola</span></div>
+      <div id="slots">
+        <div class="slot" data-w="pistol"><b>1</b> Pistola <span>12</span></div>
+        <div class="slot" data-w="shotgun"><b>2</b> Escopeta <span>6</span></div>
+      </div>
+    </div>
+
+    <div id="note-card" class="hidden">
+      <h3 id="note-title"></h3>
+      <p id="note-text"></p>
+    </div>
+    <div id="debug-tag" class="hidden">Modo depuración (F3): rangos de detección y hitboxes visibles</div>
+  </div>
+
+  <div id="labels"></div>
+  <div id="fade"></div>
+  <div id="caption"></div>
+
+  <!-- ================= Pantallas ================= -->
+  <section id="screen-loading" class="screen">
+    <div class="moon"></div>
+    <h1>Valdeumbra</h1>
+    <p id="loading-text">Cargando modelos…</p>
+  </section>
+
+  <section id="screen-menu" class="screen hidden">
+    <div class="moon"></div>
+    <h1>Valdeumbra</h1>
+    <p class="sub">Operación Extracción</p>
+    <p class="story">La luna se tiñó de rojo y los muertos de la aldea despertaron.
+      Atraviesa las calles, el cementerio y el Puente del Cuervo hasta el carruaje de los cazadores.</p>
+    <button id="btn-play">Comenzar</button>
+    <table class="controls">
+      <tr><td>W A S D</td><td>moverse</td></tr>
+      <tr><td>Mouse</td><td>mirar</td></tr>
+      <tr><td>Clic izquierdo</td><td>disparar (un tiro por clic)</td></tr>
+      <tr><td>1 / 2</td><td>pistola / escopeta</td></tr>
+      <tr><td>Espacio</td><td>saltar la intro</td></tr>
+      <tr><td>F3 o H</td><td>modo depuración</td></tr>
+    </table>
+    <p id="missing" class="warn hidden"></p>
+  </section>
+
+  <section id="screen-pause" class="screen hidden">
+    <h2>Pausa</h2>
+    <p>Haz clic para continuar</p>
+  </section>
+
+  <section id="screen-over" class="screen hidden">
+    <div class="moon"></div>
+    <h1 class="over">GAME OVER</h1>
+    <p>Un zombi te atrapó.</p>
+    <p id="over-stats" class="stats"></p>
+    <button id="btn-retry">Reintentar (R)</button>
+  </section>
+
+  <section id="screen-win" class="screen hidden">
+    <div class="moon blue"></div>
+    <h1 class="win">¡MISIÓN COMPLETADA!</h1>
+    <p>Has llegado a la zona de extracción.</p>
+    <p id="win-stats" class="stats"></p>
+    <button id="btn-again">Jugar de nuevo (R)</button>
+  </section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

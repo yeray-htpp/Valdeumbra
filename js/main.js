@@ -1,0 +1,250 @@
+// =====================================================================
+//  main.js  -  Punto de entrada: escena, cámara, carga y bucle del juego
+//
+//  Estados del juego:
+//   loading -> menu -> intro -> play <-> pause -> over | win
+// =====================================================================
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { World } from './world.js';
+import { Player } from './player.js';
+import { Weapons, WEAPON_DEFS } from './weapons.js';
+import { ZombieManager } from './zombies.js';
+import { Pickups } from './pickups.js';
+import { Intro } from './intro.js';
+import { PostFX } from './postfx.js';
+import { hud } from './hud.js';
+import { sfx, initAudio } from './sfx.js';
+import { START, EXTRACTION, ZOMBIES } from './levelData.js';
+
+// ---------- Renderer, escena y cámara (con proyección en perspectiva) ----------
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+renderer.setPixelRatio(1);
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x120608);           // cielo nocturno rojizo
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x120608, 0.05); // niebla densa
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 500);
+camera.rotation.order = 'YXZ';
+scene.add(camera);                          // necesario: el arma es hija de la cámara
+
+const postfx = new PostFX(renderer);
+const clock = new THREE.Clock();
+
+const game = { state: 'loading', debug: false, startTime: 0 };
+let world, player, weapons, zombies, pickups, intro;
+
+// ---------- Carga de modelos GLB ----------
+const loader = new GLTFLoader();
+function loadGLB(url) {
+  return new Promise(resolve => {
+    loader.load(url, gltf => resolve(gltf), undefined, err => {
+      console.warn('No se pudo cargar', url, err);
+      resolve(null);                        // se usa un modelo de respaldo
+    });
+  });
+}
+
+async function init() {
+  const [pistol, shotgun, zombie] = await Promise.all([
+    loadGLB(WEAPON_DEFS.pistol.file),
+    loadGLB(WEAPON_DEFS.shotgun.file),
+    loadGLB('models/zombie.glb'),
+  ]);
+  const missing = [];
+  if (!pistol) missing.push('models/pistol.glb');
+  if (!shotgun) missing.push('models/shotgun.glb');
+  if (!zombie) missing.push('models/zombie.glb');
+  if (missing.length) {
+    const el = document.getElementById('missing');
+    el.textContent = 'Faltan modelos GLB: ' + missing.join(', ') + '. Se usan modelos de respaldo.';
+    el.classList.remove('hidden');
+  }
+
+  world = new World(scene);
+  world.onLightning = () => sfx.thunder(0.4 + Math.random() * 0.8);
+
+  player = new Player(camera, document.body, world.colliders);
+  weapons = new Weapons(camera, { pistol, shotgun }, hud);
+  zombies = new ZombieManager(scene, zombie, world.colliders);
+  pickups = new Pickups(scene);
+
+  // las lápidas evitan los lugares de zombis y objetos
+  world.placeGraves([...ZOMBIES, ...pickups.points()]);
+  for (const def of ZOMBIES) zombies.spawn(def);
+
+  zombies.onEvent = (type) => {
+    if (type === 'howl') hud.message('¡Un aullido despierta a los muertos cercanos!', 2500, 'danger');
+    if (type === 'kill') hud.message('Zombi eliminado', 1200, 'good');
+  };
+
+  intro = new Intro({ camera, scene, world, zombies, hud, onEnd: startPlay });
+
+  hud.setAmmo(weapons);
+  hud.setNotes(0, pickups.notesTotal);
+  bindEvents();
+
+  // vista de fondo del menú: dentro de la casa
+  camera.position.set(2.6, 1.2, 10.8);
+  camera.lookAt(0, 1.3, 4);
+  weapons.holder.visible = false;
+  hud.screen('menu');
+  game.state = 'menu';
+
+  // Modo prueba: index.html?dev=x,z (aparecer en un punto) o ?dev=intro&t=9 (saltar a un momento de la intro). Añade &debug para ver rangos.
+  const q = new URLSearchParams(location.search);
+  if (q.has('dev')) {
+    hud.screen(null);
+    if (q.get('dev') === 'intro') { game.state = 'intro'; intro.start(); intro.t = +q.get('t') || 0; }
+    else {
+      world.ruinHouse(); startPlay(); game.state = 'play'; hud.screen(null);
+      const [x, z, yaw] = (q.get('dev') || '0,1,0').split(',').map(Number);
+      player.spawn(x, z); camera.rotation.y = yaw || 0;
+      if (q.has('debug')) { game.debug = true; zombies.setDebug(true); hud.setDebug(true); }
+    }
+  }
+}
+
+// ---------- Flujo del juego ----------
+function skipIntroFlag() {
+  try { return sessionStorage.getItem('valdeumbra-skip') === '1'; } catch { return false; }
+}
+
+function beginFromMenu() {
+  initAudio();
+  hud.screen(null);
+  player.controls.lock();
+  if (skipIntroFlag()) {
+    world.ruinHouse();
+    startPlay();
+  } else {
+    game.state = 'intro';
+    intro.start();
+  }
+}
+
+function startPlay() {
+  game.state = 'play';
+  game.startTime = clock.elapsedTime;
+  player.spawn(START.x, START.z);
+  weapons.holder.visible = true;
+  hud.show(true);
+  hud.message('Busca el carruaje de los cazadores, al norte', 3500);
+  if (!player.controls.isLocked) { game.state = 'pause'; hud.screen('pause'); }
+}
+
+function gameOver() {
+  game.state = 'over';                      // detiene el desarrollo normal
+  postfx.material.uniforms.uDamage.value = 0.8;
+  sfx.gameover();
+  player.controls.unlock();
+  hud.show(false);
+  hud.clearLabels();
+  document.getElementById('over-stats').textContent =
+    `Zombis eliminados: ${zombies.kills()} · Notas: ${pickups.notesFound}/${pickups.notesTotal}`;
+  hud.screen('over');
+}
+
+function win() {
+  game.state = 'win';
+  sfx.win();
+  player.controls.unlock();
+  hud.show(false);
+  hud.clearLabels();
+  const secs = Math.round(clock.elapsedTime - game.startTime);
+  document.getElementById('win-stats').textContent =
+    `Tiempo: ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} · Zombis eliminados: ${zombies.kills()} · Notas: ${pickups.notesFound}/${pickups.notesTotal}`;
+  hud.screen('win');
+}
+
+function restart() {
+  try { sessionStorage.setItem('valdeumbra-skip', '1'); } catch { /* sin almacenamiento */ }
+  location.reload();
+}
+
+// ---------- Entrada ----------
+function bindEvents() {
+  document.getElementById('btn-play').addEventListener('click', beginFromMenu);
+  document.getElementById('btn-retry').addEventListener('click', restart);
+  document.getElementById('btn-again').addEventListener('click', restart);
+
+  document.getElementById('screen-pause').addEventListener('click', () => player.controls.lock());
+  player.controls.addEventListener('lock', () => {
+    if (game.state === 'pause') { game.state = 'play'; hud.screen(null); }
+  });
+  player.controls.addEventListener('unlock', () => {
+    if (game.state === 'play') { game.state = 'pause'; hud.screen('pause'); }
+  });
+
+  // Disparo: 'mousedown' ocurre UNA vez por clic -> no hay disparo automático
+  document.addEventListener('mousedown', e => {
+    if (e.button !== 0 || game.state !== 'play' || !player.controls.isLocked) return;
+    const z = weapons.shoot(zombies, world.solidMeshes, scene);
+    if (z) hud.hitMarker();
+  });
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space' && game.state === 'intro') { e.preventDefault(); intro.skip(); }
+    if (game.state === 'play') {
+      if (e.code === 'Digit1') weapons.select('pistol');
+      if (e.code === 'Digit2') weapons.select('shotgun');
+    }
+    if (e.code === 'F3' || e.code === 'KeyH') {
+      e.preventDefault();
+      game.debug = !game.debug;
+      zombies.setDebug(game.debug);
+      hud.setDebug(game.debug);
+    }
+    if (e.code === 'KeyR' && (game.state === 'over' || game.state === 'win')) restart();
+  });
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    postfx.resize();
+  });
+}
+
+// ---------- Bucle principal ----------
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (game.state !== 'loading') {
+    world.update(dt);
+
+    if (game.state === 'intro') intro.update(dt);
+
+    if (game.state === 'play') {
+      player.update(dt);
+      weapons.update(dt, player.moving, scene);
+      pickups.update(dt, player.position, { weapons, player, hud });
+      hud.setBoost(player.boostTime);
+
+      const caught = zombies.update(dt, player.position, true);
+      if (game.debug) zombies.setDebug(true);   // refresca colores/visibilidad
+      if (caught) gameOver();
+
+      const dEx = Math.hypot(player.position.x - EXTRACTION.x, player.position.z - EXTRACTION.z);
+      hud.setDistance(dEx);
+      if (game.state === 'play' && dEx < EXTRACTION.radius) win();
+    } else if (game.state === 'pause' || game.state === 'menu') {
+      // nada se mueve
+    }
+
+    if (game.state === 'play' || game.state === 'pause') hud.updateLabels(zombies, camera, game.debug);
+  }
+
+  postfx.render(scene, camera, clock.elapsedTime);
+}
+
+hud.screen('loading');
+animate();
+init().catch(err => {
+  console.error(err);
+  document.getElementById('loading-text').textContent = 'Error al iniciar: ' + err.message;
+});

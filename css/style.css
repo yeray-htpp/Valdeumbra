@@ -1,0 +1,151 @@
+:root {
+  --bone: #e6dcc4;
+  --blood: #b3261e;
+  --ember: #e8892c;
+  --spirit: #7fc8ff;
+  --moss: #8fb07a;
+  --shade: rgba(0, 0, 0, 0.55);
+  --pixel: 'VT323', monospace;
+  --gothic: 'Pirata One', serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--bone);
+  font-family: var(--pixel);
+  user-select: none;
+}
+
+#game { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+
+.hidden { display: none !important; }
+
+/* ---------------- HUD ---------------- */
+#hud { position: fixed; inset: 0; pointer-events: none; font-size: 24px; text-shadow: 2px 2px 0 #000; }
+
+#objective { position: absolute; top: 18px; left: 22px; line-height: 1.1; }
+#distance { color: var(--spirit); font-size: 30px; }
+
+#notes { position: absolute; top: 18px; right: 22px; color: var(--ember); }
+#boost { position: absolute; top: 46px; right: 22px; color: var(--spirit); }
+
+#crosshair {
+  position: absolute; left: 50%; top: 50%;
+  width: 18px; height: 18px; transform: translate(-50%, -50%);
+}
+#crosshair::before, #crosshair::after {
+  content: ''; position: absolute; background: var(--bone); box-shadow: 0 0 0 1px #000;
+}
+#crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+#crosshair::after  { top: 8px; left: 0; height: 2px; width: 18px; }
+#crosshair.hit::before, #crosshair.hit::after { background: var(--blood); }
+
+#message {
+  position: absolute; left: 50%; top: 64%; transform: translateX(-50%);
+  font-size: 30px; text-align: center; white-space: nowrap;
+  opacity: 0; transition: opacity 0.25s;
+}
+#message.show { opacity: 1; }
+#message.danger { color: #ff5a4a; }
+#message.good { color: var(--moss); }
+
+#weapon { position: absolute; right: 26px; bottom: 20px; text-align: right; }
+#ammo-big { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; }
+#ammo-count { font-size: 76px; line-height: 0.9; }
+#ammo-count.empty { color: #ff5a4a; }
+#ammo-name { font-family: var(--gothic); font-size: 30px; color: var(--ember); }
+#slots { display: flex; gap: 14px; justify-content: flex-end; font-size: 22px; opacity: 0.6; }
+.slot b { color: var(--ember); font-weight: normal; }
+.slot.active { opacity: 1; color: #fff; }
+#slots .slot.active { text-decoration: underline; text-underline-offset: 4px; }
+
+#note-card {
+  position: absolute; left: 50%; top: 14%; transform: translateX(-50%);
+  width: min(520px, 90vw); padding: 18px 24px;
+  background: #d9c9a3; color: #2a1a10;
+  border: 3px solid #5a3a20; box-shadow: 6px 6px 0 #000;
+  text-shadow: none;
+}
+#note-card h3 { font-family: var(--gothic); font-size: 30px; font-weight: normal; margin-bottom: 6px; }
+#note-card p { font-size: 22px; line-height: 1.2; }
+
+#debug-tag { position: absolute; left: 22px; bottom: 20px; color: #5aff8a; font-size: 20px; }
+
+/* etiquetas sobre los zombis */
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.zlabel {
+  position: absolute; transform: translate(-50%, -100%);
+  font-size: 20px; white-space: nowrap; text-shadow: 2px 2px 0 #000;
+}
+.zlabel.hp { color: #ff6a5a; }
+.zlabel.dbg { color: #6aff9a; }
+
+/* ---------------- Intro ---------------- */
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+#caption {
+  position: fixed; left: 0; right: 0; top: 46%; text-align: center;
+  font-family: var(--gothic); font-size: clamp(28px, 4vw, 48px); color: var(--bone);
+  opacity: 0; transition: opacity 0.8s; pointer-events: none;
+}
+#caption.show { opacity: 1; }
+
+/* ---------------- Pantallas ---------------- */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 16px; text-align: center;
+  background: radial-gradient(ellipse at 50% 40%, rgba(40, 6, 6, 0.75), rgba(0, 0, 0, 0.92) 70%);
+  font-size: 24px;
+}
+.screen h1 {
+  position: relative;
+  font-family: var(--gothic); font-weight: normal;
+  font-size: clamp(64px, 12vw, 150px); line-height: 0.9;
+  letter-spacing: 0.02em;
+  text-shadow: 4px 4px 0 #000;
+}
+.screen h1.over { color: var(--blood); }
+.screen h1.win { color: var(--spirit); font-size: clamp(44px, 7vw, 96px); }
+.screen h2 { font-family: var(--gothic); font-weight: normal; font-size: 64px; }
+
+.moon {
+  position: absolute; top: 50%; left: 50%;
+  width: min(60vh, 80vw); aspect-ratio: 1; border-radius: 50%;
+  transform: translate(-50%, -62%);
+  background: radial-gradient(circle at 40% 38%, #c8342a, #6e1410 60%, #2a0606 100%);
+  box-shadow: 0 0 120px 30px rgba(179, 38, 30, 0.35);
+  opacity: 0.55; z-index: -1;
+}
+.moon.blue {
+  background: radial-gradient(circle at 40% 38%, #7fc8ff, #1e4a6a 60%, #061420 100%);
+  box-shadow: 0 0 120px 30px rgba(127, 200, 255, 0.3);
+}
+.screen > *:not(.moon) { position: relative; }
+.screen .sub { font-family: var(--gothic); font-size: 34px; color: var(--ember); margin-top: -8px; }
+.screen .story { max-width: 34em; font-size: 24px; line-height: 1.15; }
+.screen .stats { color: var(--ember); }
+.screen .warn { color: #ff8a6a; max-width: 36em; font-size: 20px; }
+
+button {
+  font-family: var(--gothic); font-size: 34px;
+  padding: 6px 34px; margin-top: 6px;
+  color: var(--bone); background: var(--blood);
+  border: 3px solid #000; box-shadow: 4px 4px 0 #000;
+  cursor: pointer;
+}
+button:hover { background: #d0342a; }
+button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+button:focus-visible { outline: 3px solid var(--spirit); outline-offset: 3px; }
+
+.controls { border-collapse: collapse; font-size: 22px; margin-top: 8px; }
+.controls td { padding: 1px 12px; text-align: left; }
+.controls td:first-child { color: var(--ember); text-align: right; }
+
+@media (max-width: 600px) {
+  #hud { font-size: 18px; }
+  #ammo-count { font-size: 54px; }
+}
