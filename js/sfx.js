@@ -102,6 +102,12 @@ function croak(vol = 0.3, delay = 0) {
 
 export const sfx = {
   croak,
+  // Grito del screamer: varios tonos ásperos + ruido, muy fuerte
+  scream() {
+    [620, 840, 1130, 1460].forEach((f, i) => tone(f, f * 1.35, 1.2, { type: 'sawtooth', gain: 0.32 - i * 0.04 }));
+    noise(1.3, { freq: 2500, type: 'bandpass', q: 0.7, gain: 1.4, attack: 0.01 });
+    noise(0.8, { freq: 300, gain: 1.2 });
+  },
   teke(dur = 1.6) { for (let t = 0; t < dur; t += 0.11) noise(0.04, { freq: 1800, type: 'bandpass', q: 4, gain: 0.5, delay: t }); },
   breath() { noise(0.9, { freq: 700, gain: 0.35, attack: 0.4 }); noise(0.7, { freq: 500, gain: 0.3, attack: 0.3, delay: 1.0 }); },
   staticNoise(dur = 2) { noise(dur, { freq: 3500, type: 'highpass', gain: 0.25, attack: 0.01 }); },

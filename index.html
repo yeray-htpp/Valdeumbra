@@ -28,6 +28,7 @@
       <div>Llega al carruaje de los cazadores</div>
       <div id="distance">205 m</div>
     </div>
+    <div id="lives" aria-label="Vidas"></div>
     <div id="notes">Notas del diario 0/4</div>
     <div id="ofuda">Ofuda 0/3</div>
     <div id="boost" class="hidden">Celeridad 8</div>
@@ -53,6 +54,7 @@
 
   <div id="labels"></div>
   <div id="fade"></div>
+  <div id="screamer"><canvas width="160" height="120"></canvas></div>
   <div id="caption"></div>
 
   <!-- ================= Pantallas ================= -->
@@ -90,14 +92,16 @@
     <div class="moon"></div>
     <h1 class="over">GAME OVER</h1>
     <p>Un zombi te atrapó.</p>
+    <p id="over-lives" class="lives-left"></p>
     <p id="over-stats" class="stats"></p>
-    <button id="btn-retry">Reintentar (R)</button>
+    <button id="btn-retry">Continuar (R)</button>
   </section>
 
   <section id="screen-win" class="screen hidden">
     <div class="moon blue"></div>
     <h1 class="win">¡MISIÓN COMPLETADA!</h1>
     <p>Has llegado a la zona de extracción.</p>
+    <p class="epilogue">…pero no llegaste solo.</p>
     <p id="win-stats" class="stats"></p>
     <button id="btn-again">Jugar de nuevo (R)</button>
   </section>

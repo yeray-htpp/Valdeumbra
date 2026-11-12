@@ -120,6 +120,17 @@ export const NOTES = [
     text: 'Los cazadores prometieron esperar con su carruaje pasando el puente. Algo enorme vigila el paso. Dos balas bastan, dicen…' },
 ];
 
+// Vidas: cada vez que te atrapan sale GAME OVER y puedes continuar
+// desde el último punto de control mientras te queden vidas.
+export const LIVES = 3;
+
+// Puntos de control: al pasar por `z` se guarda (x, z) como reaparición
+export const CHECKPOINTS = [
+  { z: -22,  x: 0,   sz: -22,  name: 'Entrada de la aldea' },
+  { z: -92,  x: -14, sz: -92,  name: 'Cementerio' },
+  { z: -152, x: 10,  sz: -152, name: 'Río' },
+];
+
 // Talismanes necesarios para romper el sello del puente
 export const OFUDA_NEEDED = 3;
 

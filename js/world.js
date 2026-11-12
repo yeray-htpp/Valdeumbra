@@ -640,7 +640,30 @@ export class World {
     const ex = EXTRACTION;
     // carruaje
     const cz = ex.z - 6;
-    this.box(ex.x, 0.6, cz, 2.4, 2.2, 3.6, this.mat.dark);
+    // Carruaje hueco: paredes de doble cara, ventana lateral y bancos
+    const cm = new THREE.MeshLambertMaterial({ map: TEX.wood(), color: 0xb09080, side: THREE.DoubleSide });
+    const panel = (x, y, z, w, h, d) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), cm);
+      m.position.set(ex.x + x, y, cz + z);
+      this.scene.add(m);
+      this.solidMeshes.push(m);
+    };
+    panel(0, 0.6, 0, 2.4, 0.08, 3.6);                     // suelo
+    panel(0, 2.8, 0, 2.4, 0.08, 3.6);                     // techo
+    panel(1.2, 1.7, 0, 0.08, 2.2, 3.6);                   // lado derecho
+    panel(0, 1.7, -1.8, 2.4, 2.2, 0.08);                  // frente
+    panel(0, 1.7, 1.8, 2.4, 2.2, 0.08);                   // atrás
+    panel(-1.2, 1.05, 0, 0.08, 0.9, 3.6);                 // lado izq.: bajo la ventana
+    panel(-1.2, 2.5, 0, 0.08, 0.6, 3.6);                  //            sobre la ventana
+    panel(-1.2, 1.85, -1.15, 0.08, 0.7, 1.3);             //            a los lados
+    panel(-1.2, 1.85, 1.15, 0.08, 0.7, 1.3);
+    panel(0, 0.85, 1.4, 2.2, 0.45, 0.6);                  // banco trasero
+    panel(0, 0.85, -1.4, 2.2, 0.45, 0.6);                 // banco delantero
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(ex.x - 1.3, 0, cz - 1.9), new THREE.Vector3(ex.x + 1.3, 3, cz + 1.9)));
+    // linterna interior (apagada hasta la escena final)
+    this.carriageLight = new THREE.PointLight(0xffb060, 0, 7, 1.2);
+    this.carriageLight.position.set(ex.x + 0.6, 2.4, cz + 0.2);
+    this.scene.add(this.carriageLight);
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 3.8), this.mat.wood);
     top.position.set(ex.x, 2.9, cz); this.scene.add(top);
     for (const [dx, dz] of [[-1.3, -1.2], [1.3, -1.2], [-1.3, 1.2], [1.3, 1.2]]) {

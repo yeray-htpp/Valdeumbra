@@ -46,6 +46,12 @@ export const hud = {
     noteTimer = setTimeout(() => $('note-card').classList.add('hidden'), 7000);
   },
 
+  // Vidas: 命 (inochi = vida) encendidos o apagados
+  setLives(n, total = 3) {
+    $('lives').innerHTML = Array.from({ length: total }, (_, i) =>
+      `<span class="${i < n ? '' : 'lost'}">命</span>`).join('');
+  },
+
   setOfuda(n, total) {
     $('ofuda').textContent = n >= total ? 'Sello del puente roto' : `Ofuda ${n}/${total}`;
     $('ofuda').classList.toggle('done', n >= total);

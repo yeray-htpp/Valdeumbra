@@ -387,5 +387,26 @@ export class ZombieManager {
     }
   }
 
+  // Al reaparecer: los zombis vivos cercanos vuelven a su sitio, inactivos
+  resetNear(x, z, radius) {
+    for (const zb of this.list) {
+      if (zb.state === 'dead' || zb.type.emerge) continue;
+      const p = zb.root.position;
+      if (Math.hypot(p.x - x, p.z - z) > radius) continue;
+      let hx = zb.def.x, hz = zb.def.z;
+      if (Math.hypot(hx - x, hz - z) < radius) {            // su sitio también está cerca: lo alejamos
+        const a = Math.atan2(hz - z, hx - x) || Math.random() * 6;
+        hx = x + Math.cos(a) * radius; hz = z + Math.sin(a) * radius;
+      }
+      if (collidesCircle(this.colliders, hx, hz, 0.4)) { hx = zb.def.x; hz = zb.def.z; }
+      p.set(hx, 0, hz);
+      zb.state = 'idle';
+      zb.stun = 0;
+      zb.ring.material.color.setHex(0x33ff66);
+      if (zb.mixer) zb.mixer.timeScale = 1;
+      this.playAnim(zb, 'idle');
+    }
+  }
+
   kills() { return this.list.filter(z => z.state === 'dead').length; }
 }

@@ -30,7 +30,7 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Mouse | Orientar la cámara |
 | Clic izquierdo | Disparar (un disparo por clic) |
 | 1 / 2 | Pistola / escopeta |
-| Espacio | Saltar la intro |
+| Espacio | Saltar la intro o la escena final |
 | F3 o H | Modo depuración (rangos de detección, hitboxes y estado de cada zombi) |
 | R | Reiniciar tras GAME OVER o victoria |
 | Esc | Pausa |
@@ -49,8 +49,8 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Detección y persecución | Máquina de estados `idle → chase → dead`. El rango se configura por tipo | `js/zombies.js`, `js/levelData.js` |
 | Disparos y colisiones | `Raycaster` desde el centro de la cámara contra hitboxes y paredes | `js/weapons.js` |
 | 2 impactos exactos | `hp = 2`, cada impacto válido resta 1. En 0 pasa a `dead`: deja de perseguir y atacar | `js/zombies.js` |
-| Zona de extracción | Círculo de luz junto al carruaje y mensaje «¡MISIÓN COMPLETADA!» | `js/main.js`, `js/world.js` |
-| Game Over | Contacto con un zombi vivo: se detiene el bucle y aparece GAME OVER (R reinicia) | `js/main.js` |
+| Zona de extracción | Al entrar al círculo de luz aparece «¡MISIÓN COMPLETADA! Has llegado a la zona de extracción» y empieza la escena final | `js/main.js`, `js/finale.js` |
+| Game Over y vidas | Contacto con un zombi vivo: se detiene el juego y aparece **GAME OVER**. Tienes **3 vidas (命)**: mientras te queden, *Continuar (R)* te devuelve al último punto de control (aldea, cementerio, río). Sin vidas, se reinicia desde el principio | `js/main.js` |
 | Coleccionables | Cajas de munición, poción de velocidad y 4 notas del diario | `js/pickups.js` |
 | Ofuda y sello | El puente tiene un sello mágico (封). Hay que encontrar **3 ofuda** (talismanes) para romperlo | `js/pickups.js`, `js/world.js` |
 | Munición extra | Algunos zombis sueltan una caja pequeña al morir (hay que ir a recogerla) | `js/pickups.js` |
@@ -74,6 +74,10 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | **Ochimusha** | jz_ochimusha | 2.8 m/s | 16 m | samurái caído gigante que guarda el puente |
 
 Los modelos **jz_*** los creé yo por código en `tools/forge.js` (ver más abajo).
+
+### Escena final: «El último pasajero»
+
+Al llegar al carruaje aparece el mensaje de misión completada y la cámara pasa al interior del carruaje en marcha (traqueteo, cascos, la aldea por la ventana). La linterna se apaga, un relámpago revela al onryō sentado enfrente y se lanza contra la cámara con un **screamer**: grito, pantalla roja, glitch al máximo y su rostro a pantalla completa. Después: «El carruaje llegó al amanecer… con un pasajero más.» Se puede saltar con ESPACIO.
 
 ### Escenas de terror (inspiradas en el j-horror)
 
@@ -124,7 +128,8 @@ js/weapons.js     armas, disparo (raycasting) y munición
 js/zombies.js     enemigos: estados, persecución, impactos y muerte
 js/pickups.js     coleccionables
 js/intro.js       cinemática inicial (shoji)
-js/scares.js      escenas de terror y horda final
+js/scares.js      escenas de terror y cinemáticas
+js/finale.js      escena final con screamer
 js/postfx.js      shader retro (vertex + fragment GLSL)
 tools/forge.js    creación de los personajes j-horror y exportación a GLB
 js/hud.js         interfaz
