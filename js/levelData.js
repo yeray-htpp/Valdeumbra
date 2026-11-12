@@ -122,7 +122,7 @@ export const NOTES = [
 
 // Vidas: cada vez que te atrapan sale GAME OVER y puedes continuar
 // desde el último punto de control mientras te queden vidas.
-export const LIVES = 3;
+export const LIVES = 1;
 
 // Puntos de control: al pasar por `z` se guarda (x, z) como reaparición
 export const CHECKPOINTS = [

@@ -50,7 +50,7 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Disparos y colisiones | `Raycaster` desde el centro de la cámara contra hitboxes y paredes | `js/weapons.js` |
 | 2 impactos exactos | `hp = 2`, cada impacto válido resta 1. En 0 pasa a `dead`: deja de perseguir y atacar | `js/zombies.js` |
 | Zona de extracción | Al entrar al círculo de luz aparece «¡MISIÓN COMPLETADA! Has llegado a la zona de extracción» y empieza la escena final | `js/main.js`, `js/finale.js` |
-| Game Over y vidas | Contacto con un zombi vivo: se detiene el juego y aparece **GAME OVER**. Tienes **3 vidas (命)**: mientras te queden, *Continuar (R)* te devuelve al último punto de control (aldea, cementerio, río). Sin vidas, se reinicia desde el principio | `js/main.js` |
+| Game Over y vidas | Contacto con un zombi vivo: se detiene el juego y aparece **GAME OVER**. Tienes **1 vida (命)**: al ser atrapado, *Reintentar (R)* reinicia desde el principio (la cantidad de vidas se configura en `LIVES`, en `js/levelData.js`) | `js/main.js` |
 | Coleccionables | Cajas de munición, poción de velocidad y 4 notas del diario | `js/pickups.js` |
 | Ofuda y sello | El puente tiene un sello mágico (封). Hay que encontrar **3 ofuda** (talismanes) para romperlo | `js/pickups.js`, `js/world.js` |
 | Munición extra | Algunos zombis sueltan una caja pequeña al morir (hay que ir a recogerla) | `js/pickups.js` |
