@@ -16,13 +16,16 @@ export const START_AMMO = { pistol: 12, shotgun: 6 };
 //  Tipos de zombi. TODOS tienen 2 puntos de resistencia (regla RF07).
 //  speed: m/s   range: distancia de detección (m)   scale: tamaño
 // ---------------------------------------------------------------------
+//  model: archivo GLB (models/zombie_<model>.glb)   move: animación al perseguir
 export const ZOMBIE_TYPES = {
-  errante:    { name: 'Errante',    speed: 1.6, range: 12, scale: 1.0,  tint: 0x9fbf8a },
-  corredor:   { name: 'Corredor',   speed: 4.0, range: 9,  scale: 0.95, tint: 0xd09a80 },
-  arrastrado: { name: 'Arrastrado', speed: 0.9, range: 6,  scale: 0.6,  tint: 0x8a9a80 },
-  aullador:   { name: 'Aullador',   speed: 2.4, range: 14, scale: 1.05, tint: 0xb0a0e0, howl: 15 },
-  guardian:   { name: 'Guardián',   speed: 3.0, range: 16, scale: 1.8,  tint: 0xe07070 },
+  errante:    { name: 'Errante',    model: 'basic',   move: 'Walk',  speed: 1.6, range: 12, scale: 1.0,  tint: 0xffffff },
+  corredor:   { name: 'Corredor',   model: 'arm',     move: 'Run',   speed: 4.0, range: 9,  scale: 0.95, tint: 0xffe0d0 },
+  arrastrado: { name: 'Arrastrado', model: 'basic',   move: 'Crawl', speed: 0.9, range: 6,  scale: 0.95, tint: 0xc0d0b0, crawl: true },
+  aullador:   { name: 'Aullador',   model: 'ribcage', move: 'Walk',  speed: 2.4, range: 14, scale: 1.05, tint: 0xd8d0ff, howl: 15 },
+  guardian:   { name: 'Guardián',   model: 'chubby',  move: 'Walk',  speed: 3.0, range: 16, scale: 1.8,  tint: 0xffb0a0 },
 };
+
+export const ZOMBIE_MODELS = ['basic', 'arm', 'chubby', 'ribcage'];
 
 export const ZOMBIE_HP = 2;
 

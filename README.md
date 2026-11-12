@@ -43,8 +43,8 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | 2 armas GLB, teclas 1/2 | `GLTFLoader`, solo una visible a la vez, con animación de cambio | `js/weapons.js` |
 | Un disparo por clic | Evento `mousedown`: se dispara una vez por clic, sin modo automático | `js/main.js` |
 | Munición por arma | `ammo = { pistol, shotgun }`. En 0 no dispara. **No hay tecla de recarga** | `js/weapons.js` |
-| Recuperar munición | Solo con cajas del escenario: amarilla para la pistola, roja para la escopeta | `js/pickups.js` |
-| Zombis GLB | `GLTFLoader` + `SkeletonUtils.clone` + `AnimationMixer` | `js/zombies.js` |
+| Recuperar munición | Solo con cofres del escenario: cofre normal (gema amarilla) = pistola, cofre especial (gema roja) = escopeta | `js/pickups.js` |
+| Zombis GLB | 4 modelos GLB animados: `GLTFLoader` + `SkeletonUtils.clone` + `AnimationMixer` (caminar, correr, arrastrarse, recibir golpe, morir) | `js/zombies.js` |
 | Detección y persecución | Máquina de estados `idle → chase → dead`. El rango se configura por tipo | `js/zombies.js`, `js/levelData.js` |
 | Disparos y colisiones | `Raycaster` desde el centro de la cámara contra hitboxes y paredes | `js/weapons.js` |
 | 2 impactos exactos | `hp = 2`, cada impacto válido resta 1. En 0 pasa a `dead`: deja de perseguir y atacar | `js/zombies.js` |
@@ -55,13 +55,13 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 
 ### Tipos de zombi (todos mueren con 2 impactos)
 
-| Tipo | Velocidad | Rango de detección | Detalle |
-|---|---|---|---|
-| Errante | 1.6 m/s | 12 m | básico |
-| Corredor | 4.0 m/s | 9 m | rápido |
-| Arrastrado | 0.9 m/s | 6 m | pequeño, difícil de apuntar |
-| Aullador | 2.4 m/s | 14 m | al detectarte despierta a los zombis a 15 m |
-| Guardián | 3.0 m/s | 16 m | gigante, vigila el puente |
+| Tipo | Modelo | Velocidad | Rango | Detalle |
+|---|---|---|---|---|
+| Errante | zombie_basic | 1.6 m/s | 12 m | camina |
+| Corredor | zombie_arm | 4.0 m/s | 9 m | corre |
+| Arrastrado | zombie_basic | 0.9 m/s | 6 m | se arrastra por el suelo, difícil de apuntar |
+| Aullador | zombie_ribcage | 2.4 m/s | 14 m | al detectarte despierta a los zombis a 15 m |
+| Guardián | zombie_chubby | 3.0 m/s | 16 m | gigante (×1.8), vigila el puente |
 
 ### Estilo visual (shader GLSL propio)
 
@@ -85,14 +85,17 @@ js/intro.js       cinemática inicial
 js/postfx.js      shader retro (vertex + fragment GLSL)
 js/hud.js         interfaz
 js/sfx.js         sonidos generados con Web Audio
-models/           pistol.glb, shotgun.glb, zombie.glb
+models/           pistol.glb, shotgun.glb, zombie_*.glb (4 zombis), env_*.glb (barriles, pallets, cofres, sangre)
 ```
 
 ## Créditos de recursos externos
 
 - **Three.js** r160 — MIT — https://threejs.org
-- **Zombi:** Quaternius, *Zombie Apocalypse Kit* — CC0 — https://quaternius.com/packs/zombieapocalypsekit.html
-- **Armas:** Quaternius, *Low Poly Guns Pack* — CC0 — https://opengameart.org/content/low-poly-guns-pack
+- **Zombis, armas y decoración:** Quaternius, *Zombie Apocalypse Kit* — CC0 — https://quaternius.com/packs/zombieapocalypsekit.html
+  - `zombie_basic`, `zombie_arm`, `zombie_ribcage`, `zombie_chubby` (con animaciones Walk/Run/Crawl/Death/HitReact)
+  - `pistol`, `shotgun`
+  - `env_barrel`, `env_pallet`, `env_pallet_broken`, `env_chest`, `env_chest_special`, `env_blood_1..3`
+  - Se convirtieron de `.gltf` a `.glb` (formato binario) para el proyecto.
 - **Fuentes:** Pirata One y VT323 — SIL Open Font License — Google Fonts
 
 El escenario, las texturas (generadas en canvas), los sonidos y el shader son propios.

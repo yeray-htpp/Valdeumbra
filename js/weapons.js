@@ -14,13 +14,13 @@ import { sfx } from './sfx.js';
 // Ajustes de cada arma. `rotY` corrige hacia dónde apunta el modelo GLB.
 export const WEAPON_DEFS = {
   pistol: {
-    name: 'PISTOLA', file: 'models/pistol.glb', length: 0.32,
-    pos: new THREE.Vector3(0.2, -0.2, -0.42), rotY: 0,
+    name: 'PISTOLA', file: 'models/pistol.glb', length: 0.34,
+    pos: new THREE.Vector3(0.2, -0.2, -0.45), rotY: Math.PI,
     range: 60, knockback: 0, recoil: 0.06, sound: 'pistol',
   },
   shotgun: {
     name: 'ESCOPETA', file: 'models/shotgun.glb', length: 0.85,
-    pos: new THREE.Vector3(0.24, -0.24, -0.55), rotY: 0,
+    pos: new THREE.Vector3(0.22, -0.24, -0.6), rotY: Math.PI,
     range: 30, knockback: 2.2, recoil: 0.14, sound: 'shotgun',
   },
 };

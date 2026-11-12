@@ -6,7 +6,7 @@
 // =====================================================================
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { World } from './world.js';
+import { World, PROP_MODELS } from './world.js';
 import { Player } from './player.js';
 import { Weapons, WEAPON_DEFS } from './weapons.js';
 import { ZombieManager } from './zombies.js';
@@ -15,7 +15,7 @@ import { Intro } from './intro.js';
 import { PostFX } from './postfx.js';
 import { hud } from './hud.js';
 import { sfx, initAudio } from './sfx.js';
-import { START, EXTRACTION, ZOMBIES } from './levelData.js';
+import { START, EXTRACTION, ZOMBIES, ZOMBIE_MODELS } from './levelData.js';
 
 // ---------- Renderer, escena y cámara (con proyección en perspectiva) ----------
 const canvas = document.getElementById('game');
@@ -49,15 +49,22 @@ function loadGLB(url) {
 }
 
 async function init() {
-  const [pistol, shotgun, zombie] = await Promise.all([
-    loadGLB(WEAPON_DEFS.pistol.file),
-    loadGLB(WEAPON_DEFS.shotgun.file),
-    loadGLB('models/zombie.glb'),
-  ]);
-  const missing = [];
-  if (!pistol) missing.push('models/pistol.glb');
-  if (!shotgun) missing.push('models/shotgun.glb');
-  if (!zombie) missing.push('models/zombie.glb');
+  // Todos los modelos GLB del juego
+  const files = {
+    pistol: WEAPON_DEFS.pistol.file,
+    shotgun: WEAPON_DEFS.shotgun.file,
+    ...Object.fromEntries(ZOMBIE_MODELS.map(m => ['zombie_' + m, `models/zombie_${m}.glb`])),
+    ...Object.fromEntries(PROP_MODELS.map(m => [m, `models/env_${m}.glb`])),
+  };
+  const keys = Object.keys(files);
+  let done = 0;
+  const loaded = await Promise.all(keys.map(k => loadGLB(files[k]).then(g => {
+    document.getElementById('loading-text').textContent = `Cargando modelos… ${++done}/${keys.length}`;
+    return g;
+  })));
+  const M = Object.fromEntries(keys.map((k, i) => [k, loaded[i]]));
+  const { pistol, shotgun } = M;
+  const missing = keys.filter(k => !M[k]).map(k => files[k]);
   if (missing.length) {
     const el = document.getElementById('missing');
     el.textContent = 'Faltan modelos GLB: ' + missing.join(', ') + '. Se usan modelos de respaldo.';
@@ -69,8 +76,9 @@ async function init() {
 
   player = new Player(camera, document.body, world.colliders);
   weapons = new Weapons(camera, { pistol, shotgun }, hud);
-  zombies = new ZombieManager(scene, zombie, world.colliders);
-  pickups = new Pickups(scene);
+  world.addProps(M);
+  zombies = new ZombieManager(scene, Object.fromEntries(ZOMBIE_MODELS.map(m => [m, M['zombie_' + m]])), world.colliders);
+  pickups = new Pickups(scene, M);
 
   // las lápidas evitan los lugares de zombis y objetos
   world.placeGraves([...ZOMBIES, ...pickups.points()]);

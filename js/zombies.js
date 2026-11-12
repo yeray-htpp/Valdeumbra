@@ -33,30 +33,29 @@ function fallbackZombie() {
   return g;
 }
 
-function findClip(clips, regex) {
-  return clips.find(c => regex.test(c.name)) || null;
-}
-
 export class ZombieManager {
-  constructor(scene, gltf, colliders) {
+  // gltfs: { basic, arm, chubby, ribcage } (cada uno puede ser null)
+  constructor(scene, gltfs, colliders) {
     this.scene = scene;
-    this.gltf = gltf;
     this.colliders = colliders;
     this.list = [];
     this.debug = false;
     this.onEvent = () => {};
     this.hitMat = new THREE.MeshBasicMaterial({ color: 0x00ff66, wireframe: true });
 
-    // altura original del modelo para normalizarlo a 1.8 m
-    if (gltf) {
-      const box = new THREE.Box3().setFromObject(gltf.scene);
-      this.modelHeight = Math.max(0.01, box.max.y - box.min.y);
-      this.modelMinY = box.min.y;
-      const clips = gltf.animations || [];
-      this.clips = {
-        idle:  findClip(clips, /idle/i),
-        walk:  findClip(clips, /walk|run|crawl/i),
-        death: findClip(clips, /death|die|dead/i),
+    // Para cada modelo: altura original (para normalizarlo a 1.8 m) y animaciones
+    this.models = {};
+    for (const [key, gltf] of Object.entries(gltfs)) {
+      if (!gltf) continue;
+      // medida precisa (aplicando el esqueleto) del modelo en pose de reposo
+      gltf.scene.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(gltf.scene, true);
+      const clips = {};
+      for (const c of gltf.animations || []) clips[c.name] = c;
+      this.models[key] = {
+        gltf, clips,
+        height: Math.max(0.01, box.max.y - box.min.y),
+        minY: box.min.y,
       };
     }
   }
@@ -68,14 +67,17 @@ export class ZombieManager {
     const holder = new THREE.Group();
     let model, mixer = null, actions = {};
     const materials = [];
+    const info = this.models[type.model] || Object.values(this.models)[0];
 
-    if (this.gltf) {
-      model = SkeletonUtils.clone(this.gltf.scene);
-      const k = (BASE_HEIGHT * s) / this.modelHeight;
+    if (info) {
+      model = SkeletonUtils.clone(info.gltf.scene);
+      const k = (BASE_HEIGHT * s) / info.height;
       model.scale.setScalar(k);
-      model.position.y = -this.modelMinY * k;
+      model.position.y = -info.minY * k;
       mixer = new THREE.AnimationMixer(model);
-      for (const [name, clip] of Object.entries(this.clips)) {
+      const pick = { idle: 'Idle', walk: type.move, death: 'Death', hit: 'HitReact', attack: 'Punch' };
+      for (const [name, clipName] of Object.entries(pick)) {
+        const clip = info.clips[clipName] || (name === 'walk' ? info.clips.Walk : null);
         if (clip) actions[name] = mixer.clipAction(clip);
       }
     } else {
@@ -118,8 +120,10 @@ export class ZombieManager {
     root.rotation.y = Math.random() * Math.PI * 2;
 
     // Hitbox: caja invisible para detectar los disparos
-    const hitbox = new THREE.Mesh(new THREE.BoxGeometry(0.75 * s, BASE_HEIGHT * s, 0.75 * s), this.hitMat);
-    hitbox.position.y = (BASE_HEIGHT * s) / 2;
+    // (el que se arrastra tiene una caja baja y alargada)
+    const hb = type.crawl ? [0.8 * s, 0.7 * s, 1.5 * s] : [0.75 * s, BASE_HEIGHT * s, 0.75 * s];
+    const hitbox = new THREE.Mesh(new THREE.BoxGeometry(...hb), this.hitMat);
+    hitbox.position.y = hb[1] / 2;
     hitbox.visible = false;
     root.add(hitbox);
 
@@ -136,7 +140,7 @@ export class ZombieManager {
     this.scene.add(root);
     const z = {
       typeKey: def.type, type, root, hitbox, ring, ...vis,
-      hp: ZOMBIE_HP, state: 'idle', flash: 0, stun: 0, deadT: 0,
+      hp: ZOMBIE_HP, state: 'idle', flash: 0, hitT: 0, stun: 0, deadT: 0,
       groanT: 2 + Math.random() * 4, wobble: Math.random() * 10,
     };
     hitbox.userData.zombie = z;
@@ -162,7 +166,7 @@ export class ZombieManager {
     const next = z.actions[name];
     for (const a of Object.values(z.actions)) if (a !== next) a.fadeOut(0.25);
     next.reset().fadeIn(0.25).play();
-    if (name === 'death') { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
+    if (name === 'death' || name === 'hit') { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
   }
 
   // Estado inactivo -> activo
@@ -171,7 +175,7 @@ export class ZombieManager {
     z.state = 'chase';
     z.ring.material.color.setHex(0xff3333);
     this.playAnim(z, 'walk');
-    if (z.actions.walk) z.actions.walk.timeScale = Math.min(2.2, z.type.speed / 1.6);
+    if (z.actions.walk) z.actions.walk.timeScale = z.type.move === 'Walk' ? Math.min(2, z.type.speed / 1.4) : 1;
     if (!byHowl) sfx.groan(0.3);
 
     // El aullador despierta a los zombis cercanos
@@ -193,6 +197,7 @@ export class ZombieManager {
     sfx.hit();
     if (z.hp <= 0) { this.kill(z); return; }
     this.activate(z);                        // si estaba quieto, el disparo lo despierta
+    if (z.actions.hit) { this.playAnim(z, 'hit'); z.hitT = 0.45; }
     if (knockback > 0) {                     // la escopeta lo empuja hacia atrás
       const p = z.root.position, r = 0.35 * z.type.scale;
       const nx = p.x + dir.x * knockback, nz = p.z + dir.z * knockback;
@@ -220,6 +225,7 @@ export class ZombieManager {
 
       // parpadeo rojo al recibir un impacto
       if (z.flash > 0) z.flash -= dt;
+      if (z.hitT > 0 && (z.hitT -= dt) <= 0 && z.state === 'chase') this.playAnim(z, 'walk');
       const e = Math.max(0, z.flash) * 4;
       for (const m of z.materials) m.emissive.setRGB(e, 0, 0);
 
@@ -251,6 +257,7 @@ export class ZombieManager {
       // Persecución: girar hacia el jugador y avanzar
       z.root.rotation.y = Math.atan2(dx, dz);
       if (z.stun > 0) { z.stun -= dt; }
+      else if (z.hitT > 0) { /* se tambalea por el impacto */ }
       else if (dist > 0.01) {
         const step = z.type.speed * dt;
         const r = 0.35 * z.type.scale;

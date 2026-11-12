@@ -78,6 +78,23 @@ function seeded(seed) {
   return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 }
 
+// Modelos GLB de decoración (models/env_<nombre>.glb)
+export const PROP_MODELS = ['barrel', 'pallet', 'pallet_broken', 'blood_1', 'blood_2', 'blood_3', 'chest', 'chest_special'];
+
+// Clona un GLB, lo escala para que su lado mayor mida `size` y lo apoya en el suelo
+export function fitModel(gltf, size) {
+  const obj = gltf.scene.clone(true);
+  const box = new THREE.Box3().setFromObject(obj);
+  const dims = box.getSize(new THREE.Vector3());
+  const k = size / Math.max(dims.x, dims.y, dims.z);
+  obj.scale.setScalar(k);
+  const c = box.getCenter(new THREE.Vector3());
+  obj.position.set(-c.x * k, -box.min.y * k, -c.z * k);
+  const g = new THREE.Group();
+  g.add(obj);
+  return g;
+}
+
 export class World {
   constructor(scene) {
     this.scene = scene;
@@ -491,6 +508,38 @@ export class World {
     this.torch(-6, -196);
     this.torch(6, -196);
     this.sign(-4, -197, 'CAZADORES\nZONA SEGURA', 0);
+  }
+
+  // ------------------------------------------------------------------
+  //  Decoración con modelos GLB del Zombie Apocalypse Kit
+  // ------------------------------------------------------------------
+  addProps(M) {
+    const place = (key, x, z, size, rotY = 0, solid = false) => {
+      if (!M[key]) return;
+      const g = fitModel(M[key], size);
+      g.position.set(x, 0, z);
+      g.rotation.y = rotY;
+      this.scene.add(g);
+      if (solid) {
+        g.updateMatrixWorld(true);
+        this.colliders.push(new THREE.Box3().setFromObject(g));
+        g.traverse(o => { if (o.isMesh) this.solidMeshes.push(o); });
+      }
+    };
+    // barriles (sólidos)
+    [[-15, -30], [-15, -31.2], [15.3, -44], [-15, -60], [15, -73], [-27, -96], [26, -147],
+     [4, -152], [-26, -186], [-6, -194], [6.5, -21.5], [-6.5, -21.5]]
+      .forEach(([x, z], i) => place('barrel', x, z, 1.0, i, true));
+    // pallets apoyados en las barricadas
+    place('pallet', 2, -46.4, 1.6, 0.2);
+    place('pallet', -6, -63.4, 1.6, -0.3);
+    place('pallet_broken', 8, -24, 1.6, 1.2);
+    place('pallet_broken', -18, -152, 1.6, 0.4);
+    place('pallet_broken', 12, -160, 1.6, 2.1);
+    // charcos de sangre
+    [[1, -1, 1], [6, -10, 2], [-4, -35, 3], [10, -56, 1], [-2, -80, 2], [-12, -94, 3],
+     [4, -108, 1], [-10, -136, 2], [0, -158, 3], [1, -181, 1], [-3, -190, 2]]
+      .forEach(([x, z, n], i) => place('blood_' + n, x, z, 1.8, i * 1.7));
   }
 
   // ------------------------------------------------------------------

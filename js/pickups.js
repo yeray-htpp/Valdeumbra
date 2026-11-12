@@ -9,11 +9,13 @@
 import * as THREE from 'three';
 import { PICKUPS, NOTES } from './levelData.js';
 import { sfx } from './sfx.js';
+import { fitModel } from './world.js';
 
 const PICK_DIST = 1.3;
 
 export class Pickups {
-  constructor(scene) {
+  constructor(scene, models = {}) {
+    this.models = models;
     this.scene = scene;
     this.items = [];
     this.notesFound = 0;
@@ -34,7 +36,17 @@ export class Pickups {
 
   add(data, mats) {
     let mesh;
-    if (data.kind.startsWith('ammo')) {
+    // Cajas de munición: cofres GLB (normal = pistola, especial = escopeta)
+    const chestKey = data.kind === 'ammo_pistol' ? 'chest' : 'chest_special';
+    if (data.kind.startsWith('ammo') && this.models[chestKey]) {
+      mesh = new THREE.Group();
+      const chest = fitModel(this.models[chestKey], 0.7);
+      chest.position.y = -0.2;
+      mesh.add(chest);
+      const glow = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), mats[data.kind]);
+      glow.position.y = 0.55;
+      mesh.add(glow);
+    } else if (data.kind.startsWith('ammo')) {
       mesh = new THREE.Group();
       mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.38), mats[data.kind]));
       const band = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.08, 0.4), mats.band);
