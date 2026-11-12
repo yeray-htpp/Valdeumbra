@@ -12,9 +12,10 @@ import { Weapons, WEAPON_DEFS } from './weapons.js';
 import { ZombieManager } from './zombies.js';
 import { Pickups } from './pickups.js';
 import { Intro } from './intro.js';
+import { Scares } from './scares.js';
 import { PostFX } from './postfx.js';
 import { hud } from './hud.js';
-import { sfx, initAudio } from './sfx.js';
+import { sfx, initAudio, setRain } from './sfx.js';
 import { START, EXTRACTION, ZOMBIES, ZOMBIE_MODELS } from './levelData.js';
 
 // ---------- Renderer, escena y cámara (con proyección en perspectiva) ----------
@@ -35,7 +36,9 @@ const postfx = new PostFX(renderer);
 const clock = new THREE.Clock();
 
 const game = { state: 'loading', debug: false, startTime: 0 };
-let world, player, weapons, zombies, pickups, intro;
+let world, player, weapons, zombies, pickups, intro, scares;
+const frustum = new THREE.Frustum();
+const _pv = new THREE.Matrix4();
 
 // ---------- Carga de modelos GLB ----------
 const loader = new GLTFLoader();
@@ -84,8 +87,12 @@ async function init() {
   world.placeGraves([...ZOMBIES, ...pickups.points()]);
   for (const def of ZOMBIES) zombies.spawn(def);
 
+  scares = new Scares({ world, zombies, hud, scene, camera });
+  world.rain.visible = false;
+
   zombies.onEvent = (type) => {
-    if (type === 'howl') hud.message('¡Un aullido despierta a los muertos cercanos!', 2500, 'danger');
+    if (type === 'howl') { hud.message('¡Un aullido despierta a los muertos cercanos!', 2500, 'danger'); scares.scare(0.5); }
+    if (type === 'emerge') scares.scare(1);
     if (type === 'kill') hud.message('Zombi eliminado', 1200, 'good');
   };
 
@@ -139,6 +146,8 @@ function startPlay() {
   game.startTime = clock.elapsedTime;
   player.spawn(START.x, START.z);
   weapons.holder.visible = true;
+  world.rain.visible = true;
+  setRain(1);
   hud.show(true);
   hud.message('Busca el carruaje de los cazadores, al norte', 3500);
   if (!player.controls.isLocked) { game.state = 'pause'; hud.screen('pause'); }
@@ -223,9 +232,11 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
 
   if (game.state !== 'loading') {
-    world.update(dt);
+    world.update(dt, camera.position);
+    if (scares?.ghost.mixer) scares.ghost.mixer.update(dt);
 
     if (game.state === 'intro') intro.update(dt);
+    if (game.state !== 'play') postfx.material.uniforms.uFear.value *= 0.95;
 
     if (game.state === 'play') {
       player.update(dt);
@@ -233,13 +244,31 @@ function animate() {
       pickups.update(dt, player.position, { weapons, player, hud });
       hud.setBoost(player.boostTime);
 
-      const caught = zombies.update(dt, player.position, true);
+      hud.setStamina(player.stamina, player.exhausted);
+
+      // lo que ve la cámara (para el onryō y los jizō)
+      camera.updateMatrixWorld();
+      frustum.setFromProjectionMatrix(_pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+
+      const caught = zombies.update(dt, player.position, true, frustum);
       if (game.debug) zombies.setDebug(true);   // refresca colores/visibilidad
+      scares.update(dt, player.position, frustum);
       if (caught) gameOver();
 
+      // Extracción: al llegar empieza la horda; se gana al resistir dentro de la zona
       const dEx = Math.hypot(player.position.x - EXTRACTION.x, player.position.z - EXTRACTION.z);
+      const inZone = dEx < EXTRACTION.radius;
       hud.setDistance(dEx);
-      if (game.state === 'play' && dEx < EXTRACTION.radius) win();
+      if (game.state === 'play' && inZone && !scares.horde) scares.startHorde();
+      const hordeDone = scares.updateHorde(dt);
+      if (game.state === 'play' && hordeDone) {
+        if (inZone) win();
+        else hud.message('¡El carruaje está listo! Vuelve al círculo de luz', 600, 'good');
+      }
+
+      // glitch VHS: más fuerte cuanto más cerca está un zombi que te persigue
+      const near = THREE.MathUtils.clamp(1 - zombies.nearest / 9, 0, 1);
+      postfx.material.uniforms.uFear.value = Math.min(1, near * 0.6 + scares.spike);
     } else if (game.state === 'pause' || game.state === 'menu') {
       // nada se mueve
     }

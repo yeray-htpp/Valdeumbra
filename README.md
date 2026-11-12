@@ -25,6 +25,7 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Control | Acción |
 |---|---|
 | W / S | Avanzar / retroceder |
+| Shift | Correr (gasta estamina) |
 | A / D | Desplazarse a la izquierda / derecha |
 | Mouse | Orientar la cámara |
 | Clic izquierdo | Disparar (un disparo por clic) |
@@ -51,6 +52,7 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 | Zona de extracción | Círculo de luz junto al carruaje y mensaje «¡MISIÓN COMPLETADA!» | `js/main.js`, `js/world.js` |
 | Game Over | Contacto con un zombi vivo: se detiene el bucle y aparece GAME OVER (R reinicia) | `js/main.js` |
 | Coleccionables | Cajas de munición, poción de velocidad y 4 notas del diario | `js/pickups.js` |
+| Horda final | Al llegar al carruaje hay que resistir 25 s mientras aparecen zombis, y luego aparece el mensaje de victoria | `js/scares.js` |
 | Dificultad | Munición limitada, 5 tipos de zombi, aulladores que despiertan a otros, guardián en el puente y barricadas | `js/levelData.js` |
 
 ### Tipos de zombi (todos mueren con 2 impactos)
@@ -59,9 +61,27 @@ No hay que instalar dependencias: Three.js r160 se carga desde CDN mediante un `
 |---|---|---|---|---|
 | Errante | zombie_basic | 1.6 m/s | 12 m | camina |
 | Corredor | zombie_arm | 4.0 m/s | 9 m | corre |
+| Onryō | zombie_basic + pelo | 4.2 m/s | 15 m | solo avanza cuando no lo miras |
+| Del pozo | zombie_basic | 1.3 m/s | 8 m | sale arrastrándose del pozo |
 | Arrastrado | zombie_basic | 0.9 m/s | 6 m | se arrastra por el suelo, difícil de apuntar |
 | Aullador | zombie_ribcage | 2.4 m/s | 14 m | al detectarte despierta a los zombis a 15 m |
 | Guardián | zombie_chubby | 3.0 m/s | 16 m | gigante (×1.8), vigila el puente |
+
+### Escenas de terror (inspiradas en el j-horror)
+
+| Escena | Dónde | Cómo funciona |
+|---|---|---|
+| Silueta tras el shoji | Intro | Con cada relámpago la textura del papel muestra una silueta cada vez más cerca, y el onryō rompe el papel |
+| Farolillos que se apagan | Entrada de la aldea | Los chōchin se apagan uno a uno hacia el jugador y aparece un zombi a su espalda |
+| La puerta que golpea | Calle izquierda | La puerta golpea cada vez más fuerte; al acercarte se abre y sale un corredor |
+| 後ろ ("detrás de ti") | Final de la aldea | El kanji aparece escrito con sangre y un zombi surge detrás |
+| Jizō que giran | Entrada del cementerio | Las estatuas giran para mirarte solo cuando no están en el frustum de la cámara |
+| Pozo de *Ringu* | Cementerio | Un zombi sale arrastrándose del pozo al acercarte |
+| Campana del templo | Cementerio | Suena sola y las antorchas casi se apagan |
+| Onryō | Aldea y cementerio | Fantasma de pelo negro que **solo avanza cuando no lo miras** (prueba de frustum) |
+| Rostro en el relámpago | Puente | Un relámpago revela una figura que desaparece al instante |
+
+También hay lluvia (segmentos de línea que se reciclan alrededor de la cámara) y un **glitch VHS** en el shader que crece cuando un zombi te persigue de cerca.
 
 ### Estilo visual (shader GLSL propio)
 
@@ -81,7 +101,8 @@ js/player.js      cámara en primera persona y movimiento
 js/weapons.js     armas, disparo (raycasting) y munición
 js/zombies.js     enemigos: estados, persecución, impactos y muerte
 js/pickups.js     coleccionables
-js/intro.js       cinemática inicial
+js/intro.js       cinemática inicial (shoji)
+js/scares.js      escenas de terror y horda final
 js/postfx.js      shader retro (vertex + fragment GLSL)
 js/hud.js         interfaz
 js/sfx.js         sonidos generados con Web Audio

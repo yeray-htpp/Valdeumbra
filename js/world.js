@@ -66,12 +66,53 @@ const TEX = {
   }, 12, 3),
 };
 
+// Shoji: papel con rejilla de madera; stage 1/2 dibuja una silueta detrás
+function shojiTexture(stage) {
+  return canvasTexture(64, (g, s) => {
+    g.fillStyle = '#e4dcc4'; g.fillRect(0, 0, s, s);
+    if (stage > 0) {
+      g.fillStyle = 'rgba(10,8,8,0.92)';
+      const k = stage === 1 ? 0.6 : 1.0;          // más grande = más cerca
+      const cx = s * 0.5, top = s * (stage === 1 ? 0.3 : 0.12);
+      g.beginPath(); g.arc(cx, top + 7 * k, 6 * k, 0, Math.PI * 2); g.fill();         // cabeza
+      g.fillRect(cx - 5 * k, top + 8 * k, 10 * k, 18 * k);                              // pelo largo
+      g.beginPath(); g.moveTo(cx - 13 * k, s); g.lineTo(cx - 9 * k, top + 15 * k);
+      g.lineTo(cx + 9 * k, top + 15 * k); g.lineTo(cx + 13 * k, s); g.fill();           // cuerpo
+      if (stage === 2) { g.fillRect(cx - 20, top + 18, 9, 3); g.fillRect(cx + 11, top + 22, 9, 3); } // brazos
+    }
+    g.fillStyle = '#2b1d12';
+    for (let x = 0; x <= s; x += 16) g.fillRect(Math.min(x, s - 3), 0, 3, s);
+    for (let y = 0; y <= s; y += 16) g.fillRect(0, Math.min(y, s - 3), s, 3);
+  });
+}
+
+// Texto en kanji pintado con sangre (fondo transparente)
+function kanjiTexture(text) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#8a0a0a';
+  g.font = 'bold 96px serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 60);
+  for (let i = 0; i < 14; i++) {                       // chorreones
+    const x = 30 + Math.random() * 196;
+    g.fillRect(x, 70 + Math.random() * 20, 3, 20 + Math.random() * 40);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.magFilter = THREE.NearestFilter;
+  return t;
+}
+
 export function collidesCircle(colliders, x, z, r) {
   for (const b of colliders) {
     if (x + r > b.min.x && x - r < b.max.x && z + r > b.min.z && z - r < b.max.z) return true;
   }
   return false;
 }
+
+const _p = new THREE.Vector3();
 
 // Generador pseudoaleatorio con semilla (el mapa siempre sale igual)
 function seeded(seed) {
@@ -127,6 +168,8 @@ export class World {
     this.buildGraveyard();
     this.buildRiver();
     this.buildExtraction();
+    this.buildJapanese();
+    this.buildRain();
   }
 
   // ------------------------------------------------------------------
@@ -303,8 +346,13 @@ export class World {
     // Puerta (con pivote en la bisagra)
     this.doorPivot = new THREE.Group();
     this.doorPivot.position.set(-0.5, 0, 4);
-    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.2, 0.12), m.wood);
+    // Puerta corrediza de papel (shoji). Con el relámpago se ve una silueta detrás.
+    this.shojiTex = [shojiTexture(0), shojiTexture(1), shojiTexture(2)];
+    this.shojiMat = new THREE.MeshBasicMaterial({ map: this.shojiTex[0], color: 0x2a2620 });
+    this.shojiStage = 0;                     // 0 = sin silueta, 1 = lejos, 2 = pegada al papel
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.2, 0.06), this.shojiMat);
     door.position.set(0.5, 1.1, 0);
+    this.shoji = door;
     this.doorPivot.add(door);
     this.scene.add(this.doorPivot);
 
@@ -359,7 +407,7 @@ export class World {
     this.home.ceiling.visible = false;
     this.beam.position.set(1.5, 0.3, 9.0);
     this.beam.rotation.set(0.1, 0.3, 0.25);
-    this.doorPivot.rotation.y = -1.6;
+    this.doorPivot.visible = false;          // el shoji quedó destrozado
     // escombros que tapan la puerta
     const r = seeded(3);
     for (let i = 0; i < 6; i++) {
@@ -433,6 +481,7 @@ export class World {
 
   // Las lápidas se colocan después de conocer dónde están zombis y objetos
   placeGraves(avoidPoints) {
+    avoidPoints = avoidPoints.concat(this.reserved || []);
     for (const [x, z, k] of this.graveSpots) {
       if (avoidPoints.some(p => Math.hypot(p.x - x, p.z - z) < 2.2)) continue;
       if (x > -6 && x < 2 && z < -122 && z > -130) continue; // cripta
@@ -543,6 +592,218 @@ export class World {
   }
 
   // ------------------------------------------------------------------
+  //  Elementos japoneses y escenas de terror (j-horror)
+  // ------------------------------------------------------------------
+  buildJapanese() {
+    const red = new THREE.MeshLambertMaterial({ color: 0xa01810 });
+    const black = new THREE.MeshLambertMaterial({ color: 0x141010 });
+    this.reserved = [];                          // lugares donde no van lápidas
+
+    // Torii (portales rojos) en la aldea, el cementerio y el puente
+    const torii = (x, z) => {
+      this.box(x - 2.7, 0, z, 0.36, 4.2, 0.36, red);
+      this.box(x + 2.7, 0, z, 0.36, 4.2, 0.36, red);
+      this.box(x, 3.5, z, 6.0, 0.25, 0.25, red, false);
+      this.box(x, 4.2, z, 7.0, 0.32, 0.5, black, false);
+    };
+    torii(0, -17);
+    torii(-14, -87);
+    torii(0, -159.5);
+
+    // Farolillos de papel (chōchin) en la entrada de la aldea.
+    // Escena: se apagan uno a uno hacia el jugador.
+    this.lanterns = [];
+    for (const z of [-38, -34, -30, -26]) {
+      for (const x of [-3.2, 3.2]) {
+        this.box(x, 0, z, 0.12, 3.0, 0.12, this.mat.wood, false);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xe03a1a });
+        const l = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.5, 8), mat);
+        l.position.set(x, 2.55, z);
+        this.scene.add(l);
+        this.lanterns.push({ mat, z });
+      }
+    }
+    this.lanternLight = new THREE.PointLight(0xff4020, 8, 16, 1.4);
+    this.lanternLight.position.set(0, 2.6, -32);
+    this.scene.add(this.lanternLight);
+
+    // Pozo (escena de Ringu)
+    const wx = 18, wz = -124;
+    const wellMat = this.mat.stone.clone();
+    wellMat.side = THREE.DoubleSide;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.9, 12, 1, true), wellMat);
+    ring.position.set(wx, 0.45, wz);
+    this.scene.add(ring);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.95, 12), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    hole.rotation.x = -Math.PI / 2; hole.position.set(wx, 0.15, wz);
+    this.scene.add(hole);
+    this.box(wx - 1.1, 0, wz, 0.15, 2.3, 0.15, this.mat.wood, false);
+    this.box(wx + 1.1, 0, wz, 0.15, 2.3, 0.15, this.mat.wood, false);
+    this.box(wx, 2.3, wz, 2.6, 0.12, 1.4, this.mat.roof, false);
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(wx - 1, 0, wz - 1), new THREE.Vector3(wx + 1, 1, wz + 1)));
+    this.solidMeshes.push(ring);
+    this.reserved.push({ x: wx, z: wz }, { x: wx, z: wz + 2 }, { x: wx, z: wz - 2 }, { x: wx - 2, z: wz }, { x: wx + 2, z: wz });
+
+    // Campana del templo
+    const bx = -22, bz = -120;
+    this.box(bx - 1.2, 0, bz, 0.2, 3.2, 0.2, this.mat.wood);
+    this.box(bx + 1.2, 0, bz, 0.2, 3.2, 0.2, this.mat.wood);
+    this.box(bx, 3.2, bz, 2.8, 0.25, 0.3, this.mat.roof, false);
+    this.bellPivot = new THREE.Group();
+    this.bellPivot.position.set(bx, 3.2, bz);
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 1.0, 10), new THREE.MeshLambertMaterial({ color: 0x6a5020 }));
+    bell.position.y = -0.7;
+    this.bellPivot.add(bell);
+    this.scene.add(this.bellPivot);
+    this.bellT = 0;
+    this.reserved.push({ x: bx, z: bz }, { x: bx - 1.2, z: bz }, { x: bx + 1.2, z: bz });
+
+    // Jizō: estatuas de piedra con babero rojo. Giran para mirarte cuando no las ves.
+    this.jizos = [];
+    const stone = new THREE.MeshLambertMaterial({ color: 0x77736c });
+    const bib = new THREE.MeshLambertMaterial({ color: 0xa01810 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2010 });
+    for (const [x, z] of [[-18, -94], [-18, -97], [-18, -100], [-10, -94], [-10, -97], [-10, -100]]) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.35), stone); body.position.y = 0.3;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6), stone); head.position.y = 0.78;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.47, 0.22, 0.37), bib); b.position.set(0, 0.5, 0.01);
+      const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.02), eyeMat);
+      eye1.position.set(-0.07, 0.8, 0.18);
+      const eye2 = eye1.clone(); eye2.position.x = 0.07;
+      g.add(body, head, b, eye1, eye2);
+      g.position.set(x, 0, z);
+      g.rotation.y = Math.PI;                 // al principio dan la espalda
+      this.scene.add(g);
+      this.colliders.push(new THREE.Box3(new THREE.Vector3(x - 0.3, 0, z - 0.3), new THREE.Vector3(x + 0.3, 1, z + 0.3)));
+      this.jizos.push({ g, x, z, turned: false });
+      this.reserved.push({ x, z });
+    }
+
+    // Kanji escritos con sangre
+    const kanji = (text, x, y, z, rotY, w = 2.4) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 2),
+        new THREE.MeshBasicMaterial({ map: kanjiTexture(text), transparent: true, depthWrite: false }));
+      m.position.set(x, y, z); m.rotation.y = rotY;
+      this.scene.add(m);
+      return m;
+    };
+    kanji('逃げて', -9, 2.0, -19.45, 0);         // "huye" en el muro de la aldea
+    kanji('呪', -2, 2.6, -123.45, 0, 2);         // "maldición" en la cripta
+    this.kanjiBehind = kanji('後ろ', 6.47, 1.9, -76, -Math.PI / 2);   // "detrás de ti"
+    this.kanjiBehind.material.opacity = 0;
+
+    // Puerta que golpea (casa de la izquierda, z = -52)
+    this.bangPivot = new THREE.Group();
+    this.bangPivot.position.set(-15.95, 0, -51.4);
+    const bd = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 1.2), this.mat.wood);
+    bd.position.set(0, 1.1, -0.6);
+    this.bangPivot.add(bd);
+    this.scene.add(this.bangPivot);
+    this.bangT = 0;
+    this.bangOpen = 0;
+
+    // Trozos de papel/madera del shoji roto
+    this.debris = [];
+  }
+
+  // Rompe el shoji en pedazos (intro)
+  breakShoji() {
+    this.doorPivot.visible = false;
+    const paper = new THREE.MeshBasicMaterial({ color: 0x8a8070 });
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.3 + Math.random() * 0.3, 0.3 + Math.random() * 0.4, 0.03), i % 3 ? paper : this.mat.wood);
+      m.position.set((Math.random() - 0.5) * 1.0, 0.4 + Math.random() * 1.8, 4.1);
+      m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, 2 + Math.random() * 3);
+      m.userData.w = new THREE.Vector3(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+      this.scene.add(m);
+      this.debris.push(m);
+    }
+  }
+
+  ringBell() { this.bellT = 3; }
+  dim(seconds) { this.dimT = seconds; }
+
+  // Apaga los farolillos uno a uno, del más lejano al más cercano
+  lanternsOut(onDone) {
+    const sorted = [...this.lanterns].sort((a, b) => a.z - b.z);
+    sorted.forEach((l, i) => setTimeout(() => {
+      l.mat.color.setHex(0x140404);
+      if (i === sorted.length - 1) {
+        this.lanternLight.intensity = 0;
+        if (onDone) onDone();
+      } else this.lanternLight.intensity *= 0.82;
+    }, i * 260));
+  }
+
+  // Jizō que te miran cuando no los ves. Devuelve true si ves uno ya girado.
+  updateJizos(frustum, playerPos) {
+    let seenTurned = false;
+    for (const j of this.jizos) {
+      _p.set(j.x, 0.8, j.z);
+      const visible = frustum.containsPoint(_p);
+      const d = Math.hypot(playerPos.x - j.x, playerPos.z - j.z);
+      if (!visible && d < 16) {
+        j.g.rotation.y = Math.atan2(playerPos.x - j.x, playerPos.z - j.z);
+        j.turned = true;
+      } else if (visible && j.turned && d < 12) seenTurned = true;
+    }
+    return seenTurned;
+  }
+
+  updateJapanese(dt) {
+    // campana
+    if (this.bellT > 0) {
+      this.bellT -= dt;
+      this.bellPivot.rotation.x = Math.sin(this.time * 6) * 0.35 * (this.bellT / 3);
+    }
+    // puerta que golpea
+    if (this.bangOpen > 0) {
+      this.bangPivot.rotation.y = THREE.MathUtils.lerp(this.bangPivot.rotation.y, -1.7, dt * 10);
+    } else if (this.bangT > 0) {
+      this.bangT -= dt;
+      this.bangPivot.rotation.y = -Math.max(0, Math.sin(this.time * 9)) * 0.18;
+    } else this.bangPivot.rotation.y = 0;
+    // trozos del shoji
+    for (const m of this.debris) {
+      if (m.position.y <= 0.03) continue;
+      m.userData.v.y -= 9 * dt;
+      m.position.addScaledVector(m.userData.v, dt);
+      m.rotation.x += m.userData.w.x * dt; m.rotation.y += m.userData.w.y * dt;
+      if (m.position.y < 0.03) m.position.y = 0.03;
+    }
+  }
+
+  // Lluvia: segmentos de línea alrededor de la cámara que caen y se reciclan
+  buildRain() {
+    const N = 1400;
+    const area = 36;
+    const pos = new Float32Array(N * 6);
+    for (let i = 0; i < N; i++) {
+      const x = (Math.random() - 0.5) * area, y = Math.random() * 14, z = (Math.random() - 0.5) * area;
+      pos.set([x, y, z, x + 0.05, y - 0.6, z], i * 6);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.rain = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x9098b0, transparent: true, opacity: 0.28, fog: false }));
+    this.rain.frustumCulled = false;
+    this.scene.add(this.rain);
+  }
+
+  updateRain(dt, camPos) {
+    if (!this.rain.visible || !camPos) return;
+    this.rain.position.set(camPos.x, 0, camPos.z);
+    const a = this.rain.geometry.attributes.position.array;
+    const fall = 16 * dt;
+    for (let i = 0; i < a.length; i += 6) {
+      a[i + 1] -= fall; a[i + 4] -= fall;
+      if (a[i + 4] < 0) { a[i + 1] += 14; a[i + 4] += 14; }
+    }
+    this.rain.geometry.attributes.position.needsUpdate = true;
+  }
+
+
+  // ------------------------------------------------------------------
   //  Relámpago: un destello breve de luz azulada + trueno
   // ------------------------------------------------------------------
   flashLightning() {
@@ -550,15 +811,18 @@ export class World {
     if (this.onLightning) this.onLightning();
   }
 
-  update(dt) {
+  update(dt, camPos = null) {
     this.time += dt;
+    if (this.dimT > 0) this.dimT -= dt;
+    const dim = this.dimT > 0 ? 0.12 + Math.random() * 0.15 : 1;
     const t = this.time;
 
     // antorchas que parpadean
     for (const tr of this.torches) {
       const f = 0.8 + Math.sin(t * 13 + tr.seed) * 0.12 + Math.sin(t * 27 + tr.seed * 2) * 0.08;
       tr.flame.scale.y = f;
-      if (tr.light) tr.light.intensity = (tr.light.userData.base ??= tr.light.intensity) * f;
+      if (tr.light) tr.light.intensity = (tr.light.userData.base ??= tr.light.intensity) * f * dim;
+      tr.flame.visible = dim > 0.5 || Math.random() < 0.3;
     }
 
     // relámpagos aleatorios cada 10-20 s
@@ -574,9 +838,14 @@ export class World {
       const on = (k > 0.35) || (k > 0.12 && k < 0.22);
       this.lightning.intensity = on ? 3.5 : 0;
       this.windowMat.color.setHex(on ? 0xc0c8ff : 0x0a0a18);
+      this.shojiMat.color.setHex(on ? 0xffffff : 0x2a2620);
+      this.shojiMat.map = this.shojiTex[on ? this.shojiStage : 0];
     } else {
       this.lightning.intensity = 0;
     }
+
+    this.updateJapanese(dt);
+    this.updateRain(dt, camPos);
 
     // la zona de extracción pulsa
     this.extractRing.material.opacity = 0.25 + Math.sin(t * 3) * 0.12;

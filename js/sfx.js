@@ -75,7 +75,40 @@ function startWind() {
   src.start();
 }
 
+// Lluvia de fondo en bucle (ruido agudo filtrado)
+let rainGain = null;
+export function setRain(level) {
+  if (!ctx) return;
+  if (!rainGain) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer; src.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000;
+    rainGain = ctx.createGain(); rainGain.gain.value = 0;
+    src.connect(hp).connect(lp).connect(rainGain).connect(master);
+    src.start();
+  }
+  rainGain.gain.setTargetAtTime(level * 0.12, ctx.currentTime, 0.5);
+}
+
+// Croar del onryō (estilo Ju-On): pulsos graves y rápidos
+function croak(vol = 0.3, delay = 0) {
+  if (!ctx) return;
+  for (let i = 0; i < 14; i++) {
+    noise(0.03, { freq: 500 + Math.random() * 200, type: 'bandpass', q: 6, gain: vol, delay: delay + i * 0.045 });
+  }
+  tone(95, 80, 0.65, { type: 'square', gain: vol * 0.25, delay });
+}
+
 export const sfx = {
+  croak,
+  taiko(delay = 0) { tone(90, 45, 0.5, { gain: 0.6, delay }); noise(0.12, { freq: 200, gain: 0.5, delay }); },
+  bell()     { [220, 552, 880, 1320].forEach((f, i) => tone(f, f * 0.995, 5 - i, { gain: 0.22 / (i + 1) })); },
+  whoosh(delay = 0) { noise(0.5, { freq: 900, type: 'bandpass', q: 1.5, gain: 0.35, attack: 0.15, delay }); },
+  sting()    { tone(1200, 1150, 1.2, { type: 'sawtooth', gain: 0.12 }); tone(1270, 1210, 1.2, { type: 'sawtooth', gain: 0.12 }); noise(0.6, { freq: 4000, type: 'highpass', gain: 0.3 }); },
+  paper()    { noise(0.35, { freq: 2500, type: 'highpass', gain: 0.8 }); noise(0.2, { freq: 600, gain: 0.6, delay: 0.05 }); },
+  bang()     { noise(0.2, { freq: 250, gain: 1.4 }); tone(70, 40, 0.25, { gain: 0.5 }); },
+
   pistol()   { noise(0.18, { freq: 2600, gain: 0.9 }); tone(180, 60, 0.12, { type: 'square', gain: 0.15 }); },
   shotgun()  { noise(0.45, { freq: 1100, gain: 1.3 }); tone(120, 40, 0.3, { type: 'square', gain: 0.25 }); },
   empty()    { tone(1800, 1500, 0.05, { type: 'square', gain: 0.12 }); },

@@ -26,12 +26,23 @@ const fragmentShader = /* glsl */`
   uniform float uTime;
   uniform float uLevels;        // niveles de color por canal
   uniform float uDamage;        // 0..1 tinte rojo (game over)
+  uniform float uFear;          // 0..1 glitch VHS (zombis cerca / sustos)
   varying vec2 vUv;
 
   float rand(vec2 co) { return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453); }
 
   void main() {
-    vec3 c = texture2D(tDiffuse, vUv).rgb;
+    // --- Glitch VHS: cada fila se desplaza un poco y los canales se separan
+    vec2 uv = vUv;
+    float row = floor(uv.y * uRes.y / 3.0);
+    float jitter = (rand(vec2(row, floor(uTime * 20.0))) - 0.5) * 0.04 * uFear;
+    float band = step(0.985 - uFear * 0.05, rand(vec2(floor(uTime * 8.0), row * 0.1)));
+    uv.x += jitter + band * 0.03 * uFear;
+    float ab = 0.004 * uFear;
+    vec3 c;
+    c.r = texture2D(tDiffuse, uv + vec2(ab, 0.0)).r;
+    c.g = texture2D(tDiffuse, uv).g;
+    c.b = texture2D(tDiffuse, uv - vec2(ab, 0.0)).b;
 
     // La textura está en espacio lineal: corregimos gamma para la pantalla
     c = pow(c, vec3(1.0 / 2.2));
@@ -47,6 +58,10 @@ const fragmentShader = /* glsl */`
 
     // Grano de película
     c += (rand(p + fract(uTime)) - 0.5) * 0.035;
+
+    // Estática y líneas de barrido (scanlines)
+    c = mix(c, vec3(rand(p * 0.37 + uTime)), uFear * 0.18);
+    c *= 1.0 - uFear * 0.25 * step(0.5, mod(p.y, 2.0));
 
     // Tinte rojo al ser atrapado
     c = mix(c, vec3(c.r * 1.2 + 0.25, c.g * 0.2, c.b * 0.2), uDamage);
@@ -70,6 +85,7 @@ export class PostFX {
         uTime:    { value: 0 },
         uLevels:  { value: 20 },
         uDamage:  { value: 0 },
+        uFear:    { value: 0 },
       },
       vertexShader,
       fragmentShader,

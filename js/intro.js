@@ -17,9 +17,7 @@ const KEYS = [
   [0.0,  [2.6, 0.85, 11.2], [2.6, 3.2, 10.2]],   // acostado mirando el techo
   [3.0,  [2.6, 0.85, 11.2], [2.6, 3.2, 10.2]],
   [4.6,  [2.6, 1.2, 10.8],  [0.0, 1.3, 8.0]],    // se sienta
-  [5.3,  [2.6, 1.2, 10.8],  [-4.0, 1.7, 8.0]],   // mira la ventana
-  [6.6,  [2.6, 1.2, 10.8],  [-4.0, 1.7, 8.0]],
-  [7.4,  [2.6, 1.2, 10.8],  [0.0, 1.3, 4.0]],    // mira la puerta
+  [5.4,  [2.6, 1.2, 10.8],  [0.0, 1.3, 4.0]],    // mira el shoji (puerta de papel)
   [8.8,  [2.6, 1.2, 10.8],  [0.0, 1.3, 4.0]],
   [9.6,  [2.6, 1.6, 10.6],  [0.9, 1.4, 7.2]],    // se levanta, ve al zombi
   [10.5, [2.6, 1.6, 10.6],  [1.4, 1.5, 8.2]],
@@ -79,14 +77,16 @@ export class Intro {
     this.at(3.0, () => { hud.caption(null); hud.fade(0, 0.6); });
     this.at(3.7, () => hud.fade(1, 0.12));                       // parpadeo
     this.at(3.9, () => hud.fade(0, 0.5));
-    this.at(5.6, () => w.flashLightning());
-    this.at(6.8, () => sfx.knock());
-    this.at(7.3, () => sfx.knock());
-    this.at(7.8, () => { sfx.knock(); sfx.groan(0.35); });
-    this.at(8.4, () => {                                         // la puerta salta
+    // relámpago: una silueta de pelo largo aparece detrás del papel
+    this.at(5.8, () => { w.shojiStage = 1; w.flashLightning(); });
+    this.at(6.7, () => sfx.knock());
+    this.at(7.1, () => sfx.croak(0.4));
+    this.at(7.6, () => { w.shojiStage = 2; w.flashLightning(); sfx.sting(); }); // ahora está pegada al papel
+    this.at(8.4, () => {                                         // atraviesa el shoji
+      sfx.paper();
       sfx.crash();
-      this.doorT = 0;
-      const z = this.zombies.createModel('errante');
+      w.breakShoji();
+      const z = this.zombies.createModel('onryo');
       z.holder.position.set(0, 0, 3.0);
       z.holder.rotation.y = 0;                                   // mira hacia +Z (hacia la cama)
       if (z.actions.walk) { z.actions.idle?.stop(); z.actions.walk.play(); }

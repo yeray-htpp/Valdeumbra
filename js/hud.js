@@ -55,6 +55,16 @@ export const hud = {
     if (t > 0) $('boost').textContent = `Celeridad ${Math.ceil(t)}`;
   },
 
+  setStamina(v, tired) {
+    $('stamina-fill').style.width = (v * 100).toFixed(0) + '%';
+    $('stamina').classList.toggle('tired', tired);
+  },
+
+  setHorde(t) {
+    $('horde').classList.toggle('hidden', t === null);
+    if (t !== null) $('horde').textContent = `Resiste: ${t} s`;
+  },
+
   setDebug(on) { $('debug-tag').classList.toggle('hidden', !on); },
 
   screen(name) {

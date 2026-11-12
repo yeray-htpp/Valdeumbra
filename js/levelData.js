@@ -23,6 +23,10 @@ export const ZOMBIE_TYPES = {
   arrastrado: { name: 'Arrastrado', model: 'basic',   move: 'Crawl', speed: 0.9, range: 6,  scale: 0.95, tint: 0xc0d0b0, crawl: true },
   aullador:   { name: 'Aullador',   model: 'ribcage', move: 'Walk',  speed: 2.4, range: 14, scale: 1.05, tint: 0xd8d0ff, howl: 15 },
   guardian:   { name: 'Guardián',   model: 'chubby',  move: 'Walk',  speed: 3.0, range: 16, scale: 1.8,  tint: 0xffb0a0 },
+  // Onryō: fantasma de pelo negro. SOLO avanza cuando NO lo estás mirando.
+  onryo:      { name: 'Onryō',      model: 'basic',   move: 'Walk',  speed: 4.2, range: 15, scale: 0.9,  tint: 0xffffff, ghost: true },
+  // Sale arrastrándose del pozo cuando te acercas
+  pozo:       { name: 'Del pozo',   model: 'basic',   move: 'Crawl', speed: 1.3, range: 8,  scale: 0.95, tint: 0xb0c0d0, crawl: true, emerge: true },
 };
 
 export const ZOMBIE_MODELS = ['basic', 'arm', 'chubby', 'ribcage'];
@@ -44,6 +48,7 @@ export const ZOMBIES = [
   { type: 'errante',    x: 2,   z: -66 },
   { type: 'corredor',   x: -8,  z: -80 },
   { type: 'arrastrado', x: 6,   z: -85 },
+  { type: 'onryo',      x: -12, z: -70 },
 
   // Zona 3 - Cementerio
   { type: 'aullador',   x: -12, z: -104 },
@@ -53,6 +58,8 @@ export const ZOMBIES = [
   { type: 'arrastrado', x: -19, z: -126 },
   { type: 'aullador',   x: 13,  z: -132 },
   { type: 'corredor',   x: 1,   z: -141 },
+  { type: 'onryo',      x: 17,  z: -141 },
+  { type: 'pozo',       x: 18,  z: -124 },   // dentro del pozo
 
   // Zona 4 - Río, puente y guardián
   { type: 'errante',    x: -7,  z: -155 },
@@ -75,7 +82,14 @@ export const PICKUPS = [
   { kind: 'ammo_pistol',  x: -21, z: -156, amount: 8 },
   { kind: 'ammo_shotgun', x: 19,  z: -154, amount: 4 },
   { kind: 'potion',       x: -24, z: -112 },
+  { kind: 'ammo_pistol',  x: 8,   z: -64, amount: 6 },
+  // abastecimiento junto al carruaje para resistir la horda final
+  { kind: 'ammo_pistol',  x: -5,  z: -204, amount: 10 },
+  { kind: 'ammo_shotgun', x: 5,   z: -204, amount: 5 },
 ];
+
+// Horda final: segundos que hay que resistir en la extracción
+export const HORDE_TIME = 25;
 
 export const NOTES = [
   { x: -3, z: -6, title: 'Diario — día 1',

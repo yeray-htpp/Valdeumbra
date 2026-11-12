@@ -22,6 +22,9 @@ export class Player {
     this.speed = 4.6;          // m/s
     this.radius = 0.35;
     this.boostTime = 0;        // poción de velocidad
+    this.stamina = 1;          // 0..1 para correr con Shift
+    this.exhausted = false;
+    this.sprinting = false;
     this.moving = false;
     this.bobT = 0;
 
@@ -58,7 +61,17 @@ export class Player {
     this.moving = len > 0;
 
     if (this.boostTime > 0) this.boostTime -= dt;
-    const speed = this.speed * (this.boostTime > 0 ? 1.5 : 1);
+    // Correr (Shift): gasta estamina; si se agota hay que recuperarla un poco
+    const wantSprint = (k.ShiftLeft || k.ShiftRight) && f > 0 && !this.exhausted;
+    this.sprinting = wantSprint && this.moving;
+    if (this.sprinting) {
+      this.stamina = Math.max(0, this.stamina - dt * 0.28);
+      if (this.stamina === 0) this.exhausted = true;
+    } else {
+      this.stamina = Math.min(1, this.stamina + dt * 0.18);
+      if (this.exhausted && this.stamina > 0.35) this.exhausted = false;
+    }
+    const speed = this.speed * (this.boostTime > 0 ? 1.5 : 1) * (this.sprinting ? 1.65 : 1);
 
     if (this.moving) {
       f /= len; r /= len;
