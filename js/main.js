@@ -122,25 +122,6 @@ async function init() {
   weapons.holder.visible = false;
   hud.screen('menu');
   game.state = 'menu';
-
-  // Modo prueba: index.html?dev=x,z (aparecer en un punto) o ?dev=intro&t=9 (saltar a un momento de la intro). Añade &debug para ver rangos.
-  const q = new URLSearchParams(location.search);
-  if (q.has('dev')) {
-    hud.screen(null);
-    if (q.get('dev') === 'finale') {
-      world.ruinHouse(); world.unseal(); startPlay(); hud.screen(null);
-      player.spawn(EXTRACTION.x, EXTRACTION.z + 2);
-      startFinale();
-      for (let t = 0; t < (+q.get('t') || 0); t += 0.05) finale.update(0.05);
-      if (q.has('freeze')) finale.update = () => {};
-    } else if (q.get('dev') === 'intro') { game.state = 'intro'; intro.start(); intro.t = +q.get('t') || 0; }
-    else {
-      world.ruinHouse(); startPlay(); game.state = 'play'; hud.screen(null);
-      const [x, z, yaw] = (q.get('dev') || '0,1,0').split(',').map(Number);
-      player.spawn(x, z); camera.rotation.y = yaw || 0;
-      if (q.has('debug')) { game.debug = true; zombies.setDebug(true); hud.setDebug(true); }
-    }
-  }
 }
 
 // ---------- Flujo del juego ----------
